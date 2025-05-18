@@ -2,66 +2,88 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Corrida da Salvação</title>
   <style>
-    body {
+    * {
       margin: 0;
-      background: linear-gradient(to top, #87ceeb 0%, #ffffff 100%);
-      overflow: hidden;
-      font-family: Arial, sans-serif;
+      padding: 0;
+      box-sizing: border-box;
     }
+
+    body {
+      font-family: 'Arial', sans-serif;
+      background: linear-gradient(to top, #87ceeb, #fff);
+      overflow: hidden;
+    }
+
     #gameArea {
       position: relative;
       width: 100vw;
       height: 100vh;
-      background: #c2b280; /* chão estilo terra */
+      background-color: #f4eac2;
       overflow: hidden;
     }
+
     #ground {
       position: absolute;
       bottom: 0;
       width: 100%;
       height: 80px;
-      background: #654321;
+      background-color: #654321;
     }
+
     #player {
       position: absolute;
       bottom: 80px;
       left: 50px;
       width: 60px;
       height: 80px;
-      background-image: url('https://i.ibb.co/VcHrHcG0/menino-com-biblia.png');
-      background-size: contain;
+      background-image: url('https://github.com/Viagemjusta/corrida-da-salvacao/blob/main/personagem.png?raw=true');
+      background-size: cover;
       background-repeat: no-repeat;
-      transition: bottom 0.2s;
     }
-    #obstacle {
+
+    .obstacle {
       position: absolute;
       bottom: 80px;
-      right: -60px;
       width: 60px;
       height: 60px;
-      background-color: #555;
-      border-radius: 10px;
-      animation: moveObstacle 3s linear infinite;
+      background-color: #222;
+      border-radius: 8px;
+      animation: obstacleMove 3s linear infinite;
     }
-    @keyframes moveObstacle {
+
+    @keyframes obstacleMove {
       0% {
-        right: -60px;
+        left: 100%;
       }
       100% {
-        right: 100vw;
+        left: -60px;
       }
     }
+
     #score {
       position: absolute;
-      top: 20px;
+      top: 15px;
       left: 20px;
-      font-size: 24px;
-      color: #333;
+      font-size: 22px;
       font-weight: bold;
-      text-shadow: 1px 1px 2px white;
+      color: #222;
+    }
+
+    #gameOver {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 32px;
+      color: red;
+      display: none;
+      background-color: #fff;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 0 10px black;
     }
   </style>
 </head>
@@ -69,84 +91,124 @@
   <div id="gameArea">
     <div id="score">Pontuação: 0</div>
     <div id="player"></div>
-    <div id="obstacle"></div>
     <div id="ground"></div>
+    <div id="gameOver">Game Over! Toque para recomeçar</div>
   </div>
 
   <script>
+    const gameArea = document.getElementById('gameArea');
     const player = document.getElementById('player');
-    const obstacle = document.getElementById('obstacle');
     const scoreDisplay = document.getElementById('score');
+    const gameOverDisplay = document.getElementById('gameOver');
+
     let score = 0;
     let jumping = false;
+    let gameRunning = true;
+    let gravity = 0;
+    let position = 0;
 
     function jump() {
-      if (jumping) return;
+      if (jumping || !gameRunning) return;
       jumping = true;
       let jumpHeight = 150;
-      let upDuration = 300;
-      let downDuration = 300;
+      let upTime = 0;
 
-      let bottom = 80;
-      let startTime = null;
-
-      function animateJump(timestamp) {
-        if (!startTime) startTime = timestamp;
-        let elapsed = timestamp - startTime;
-
-        if (elapsed < upDuration) {
-          // sobe
-          let newBottom = bottom + (jumpHeight * (elapsed / upDuration));
-          player.style.bottom = newBottom + 'px';
-          requestAnimationFrame(animateJump);
-        } else if (elapsed < upDuration + downDuration) {
-          // desce
-          let newBottom = bottom + jumpHeight - (jumpHeight * ((elapsed - upDuration) / downDuration));
-          player.style.bottom = newBottom + 'px';
-          requestAnimationFrame(animateJump);
+      let jumpInterval = setInterval(() => {
+        if (upTime >= 15) {
+          clearInterval(jumpInterval);
+          let fallInterval = setInterval(() => {
+            if (position <= 0) {
+              clearInterval(fallInterval);
+              position = 0;
+              player.style.bottom = '80px';
+              jumping = false;
+            } else {
+              position -= 5;
+              player.style.bottom = 80 + position + 'px';
+            }
+          }, 20);
         } else {
-          player.style.bottom = bottom + 'px';
-          jumping = false;
+          position += 5;
+          player.style.bottom = 80 + position + 'px';
+          upTime++;
         }
-      }
-
-      requestAnimationFrame(animateJump);
+      }, 20);
     }
 
-    // Evento de pulo ao toque/clique
-    document.body.addEventListener('touchstart', jump);
-    document.body.addEventListener('mousedown', jump);
+    function spawnObstacle() {
+      if (!gameRunning) return;
+      const obstacle = document.createElement('div');
+      obstacle.classList.add('obstacle');
+      gameArea.appendChild(obstacle);
 
-    // Detecta colisão
-    function detectCollision() {
-      const playerRect = player.getBoundingClientRect();
-      const obstacleRect = obstacle.getBoundingClientRect();
+      obstacle.style.left = '100%';
 
-      return !(
-        playerRect.top > obstacleRect.bottom ||
-        playerRect.bottom < obstacleRect.top ||
-        playerRect.right < obstacleRect.left ||
-        playerRect.left > obstacleRect.right
-      );
+      let moveInterval = setInterval(() => {
+        let obstacleLeft = obstacle.offsetLeft;
+        if (!gameRunning) {
+          clearInterval(moveInterval);
+          obstacle.remove();
+          return;
+        }
+
+        if (obstacleLeft < -60) {
+          clearInterval(moveInterval);
+          obstacle.remove();
+          score++;
+          scoreDisplay.textContent = 'Pontuação: ' + score;
+        } else {
+          obstacle.style.left = obstacleLeft - 5 + 'px';
+
+          // colisão
+          let playerRect = player.getBoundingClientRect();
+          let obstacleRect = obstacle.getBoundingClientRect();
+
+          if (
+            playerRect.left < obstacleRect.left + obstacleRect.width &&
+            playerRect.left + playerRect.width > obstacleRect.left &&
+            playerRect.top < obstacleRect.top + obstacleRect.height &&
+            playerRect.height + playerRect.top > obstacleRect.top
+          ) {
+            gameOver();
+          }
+        }
+      }, 20);
     }
 
-    // Atualiza o jogo
-    function gameLoop() {
-      if (detectCollision()) {
-        alert('Game Over! Sua pontuação: ' + score);
-        score = 0;
-        obstacle.style.animation = 'none';
-        // Forçar reflow para reiniciar animação
-        obstacle.offsetHeight; 
-        obstacle.style.animation = null;
+    function gameOver() {
+      gameRunning = false;
+      gameOverDisplay.style.display = 'block';
+    }
+
+    function resetGame() {
+      document.querySelectorAll('.obstacle').forEach(el => el.remove());
+      score = 0;
+      scoreDisplay.textContent = 'Pontuação: 0';
+      position = 0;
+      player.style.bottom = '80px';
+      gameRunning = true;
+      gameOverDisplay.style.display = 'none';
+    }
+
+    document.body.addEventListener('mousedown', () => {
+      if (!gameRunning) {
+        resetGame();
       } else {
-        score++;
-        scoreDisplay.textContent = 'Pontuação: ' + score;
+        jump();
       }
-      requestAnimationFrame(gameLoop);
-    }
+    });
 
-    requestAnimationFrame(gameLoop);
+    document.body.addEventListener('touchstart', () => {
+      if (!gameRunning) {
+        resetGame();
+      } else {
+        jump();
+      }
+    });
+
+    setInterval(() => {
+      if (gameRunning) spawnObstacle();
+    }, 2000);
   </script>
 </body>
 </html>
