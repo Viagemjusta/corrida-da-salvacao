@@ -1,254 +1,206 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Corrida da Salvação - Joystick Só</title>
-<style>
-  body {
-    margin: 0;
-    background: black;
-    overflow: hidden;
-    font-family: Arial, sans-serif;
-    touch-action: none;
-  }
-  canvas {
-    display: block;
-    margin: 0 auto;
-    background: black;
-    border: 2px solid #333;
-  }
-  #gameover {
-    position: fixed;
-    top: 40%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    font-size: 3em;
-    color: red;
-    display: none;
-    z-index: 10;
-  }
-  #joystick-container {
-    position: fixed;
-    bottom: 20px;
-    left: 20px;
-    width: 120px;
-    height: 120px;
-    background: rgba(255, 255, 255, 0.1);
-    border-radius: 50%;
-    touch-action: none;
-    z-index: 10;
-  }
-  #joystick {
-    position: relative;
-    width: 80px;
-    height: 80px;
-    background: rgba(255, 255, 255, 0.2);
-    border-radius: 50%;
-    margin: 20px auto;
-    touch-action: none;
-  }
-  #stick {
-    position: absolute;
-    width: 40px;
-    height: 40px;
-    background: rgba(255, 0, 0, 0.7);
-    border-radius: 50%;
-    top: 20px;
-    left: 20px;
-    touch-action: none;
-  }
-</style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Corrida da Salvação</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: black;
+    }
+    canvas {
+      display: block;
+    }
+    #joystick {
+      position: absolute;
+      left: 20px;
+      bottom: 20px;
+      width: 100px;
+      height: 100px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 50%;
+      touch-action: none;
+    }
+    #stick {
+      width: 50px;
+      height: 50px;
+      background: red;
+      border-radius: 50%;
+      position: absolute;
+      top: 25px;
+      left: 25px;
+      touch-action: none;
+    }
+  </style>
 </head>
 <body>
-<canvas id="game" width="600" height="400"></canvas>
-<div id="gameover">Fim de Jogo!</div>
 
-<div id="joystick-container">
-  <div id="joystick">
-    <div id="stick"></div>
-  </div>
+<canvas id="gameCanvas"></canvas>
+
+<div id="joystick">
+  <div id="stick"></div>
 </div>
 
 <script>
-const canvas = document.getElementById("game");
-const ctx = canvas.getContext("2d");
+  const canvas = document.getElementById("gameCanvas");
+  const ctx = canvas.getContext("2d");
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
 
-const gravity = 0.8;
-const groundLevel = 330;
-
-let gameOver = false;
-
-const player = {
-  x: 50,
-  y: groundLevel,
-  w: 50,
-  h: 70,
-  velocityY: 0,
-  isJumping: false,
-  speedX: 5
-};
-
-const playerImg = new Image();
-playerImg.src = "photo-output.png";
-
-const knifeImg = new Image();
-knifeImg.src = "https://i.ibb.co/2SZDcFz/knife.png";
-
-const planeImg = new Image();
-planeImg.src = "https://i.ibb.co/HCZ1M2H/plane.png";
-
-let obstacles = [];
-
-function createObstacle() {
-  const types = [
-    {img: knifeImg, w: 40, h: 20},
-    {img: planeImg, w: 60, h: 30}
-  ];
-  const type = types[Math.floor(Math.random() * types.length)];
-  const obstacle = {
-    x: canvas.width + 50,
-    y: groundLevel + 50 - type.h,
-    w: type.w,
-    h: type.h,
-    img: type.img,
-    speed: 6 + Math.random() * 3
+  const player = {
+    x: canvas.width / 2,
+    y: canvas.height - 100,
+    size: 40,
+    color: "red",
+    speed: 4
   };
-  obstacles.push(obstacle);
-}
 
-canvas.addEventListener("touchstart", (e) => {
-  if (!player.isJumping) {
-    player.velocityY = -15;
-    player.isJumping = true;
+  const bullets = [];
+  const enemies = [];
+
+  let joystick = {
+    active: false,
+    x: 0,
+    y: 0,
+    dx: 0,
+    dy: 0
+  };
+
+  const joystickBase = document.getElementById("joystick");
+  const joystickStick = document.getElementById("stick");
+
+  joystickBase.addEventListener("touchstart", (e) => {
+    joystick.active = true;
+    const rect = joystickBase.getBoundingClientRect();
+    const touch = e.touches[0];
+    joystick.x = touch.clientX - rect.left - 50;
+    joystick.y = touch.clientY - rect.top - 50;
+    moveStick(joystick.x, joystick.y);
+  });
+
+  joystickBase.addEventListener("touchmove", (e) => {
+    const rect = joystickBase.getBoundingClientRect();
+    const touch = e.touches[0];
+    const x = touch.clientX - rect.left - 50;
+    const y = touch.clientY - rect.top - 50;
+    joystick.dx = x / 50;
+    joystick.dy = y / 50;
+    moveStick(x, y);
+  });
+
+  joystickBase.addEventListener("touchend", () => {
+    joystick.active = false;
+    joystick.dx = 0;
+    joystick.dy = 0;
+    moveStick(0, 0);
+  });
+
+  function moveStick(x, y) {
+    joystickStick.style.left = `${25 + x}px`;
+    joystickStick.style.top = `${25 + y}px`;
   }
-});
 
-// Joystick virtual
-const joystick = document.getElementById("joystick");
-const stick = document.getElementById("stick");
+  canvas.addEventListener("touchstart", () => {
+    shoot();
+  });
 
-let dragging = false;
-let maxDistance = 30;
-let stickX = 0;
-
-function getJoystickPos(touch) {
-  const rect = joystick.getBoundingClientRect();
-  let x = touch.clientX - rect.left - rect.width / 2;
-  return x;
-}
-
-function onStart(e) {
-  e.preventDefault();
-  dragging = true;
-  let x = e.touches ? getJoystickPos(e.touches[0]) : e.clientX;
-  updateStick(x, 0);
-}
-
-function onMove(e) {
-  if (!dragging) return;
-  e.preventDefault();
-  let x = e.touches ? getJoystickPos(e.touches[0]) : e.clientX;
-  if (x > maxDistance) x = maxDistance;
-  if (x < -maxDistance) x = -maxDistance;
-  updateStick(x, 0);
-}
-
-function onEnd(e) {
-  e.preventDefault();
-  dragging = false;
-  updateStick(0, 0);
-}
-
-function updateStick(x, y) {
-  stick.style.transform = `translate(${x}px, ${y}px)`;
-  stickX = x;
-}
-
-joystick.addEventListener("touchstart", onStart);
-joystick.addEventListener("touchmove", onMove);
-joystick.addEventListener("touchend", onEnd);
-joystick.addEventListener("mousedown", onStart);
-window.addEventListener("mousemove", onMove);
-window.addEventListener("mouseup", onEnd);
-
-function updatePlayer() {
-  let joyX = stickX / maxDistance;
-  if (Math.abs(joyX) > 0.1) {
-    player.x += joyX * player.speedX;
+  function shoot() {
+    bullets.push({
+      x: player.x + player.size / 2 - 2,
+      y: player.y,
+      size: 4,
+      color: "white"
+    });
   }
-  if (player.x < 0) player.x = 0;
-  if (player.x + player.w > canvas.width) player.x = canvas.width - player.w;
 
-  player.velocityY += gravity;
-  player.y += player.velocityY;
-
-  if (player.y > groundLevel) {
-    player.y = groundLevel;
-    player.isJumping = false;
-    player.velocityY = 0;
+  function spawnEnemy() {
+    const size = 30 + Math.random() * 20;
+    enemies.push({
+      x: Math.random() * (canvas.width - size),
+      y: -size,
+      size: size,
+      speed: 2 + Math.random() * 3,
+      color: "purple"
+    });
   }
-}
 
-function updateObstacles() {
-  for (let i = obstacles.length - 1; i >= 0; i--) {
-    const ob = obstacles[i];
-    ob.x -= ob.speed;
-    if (ob.x + ob.w < 0) obstacles.splice(i, 1);
+  setInterval(spawnEnemy, 1000);
+
+  function drawPlayer() {
+    ctx.fillStyle = player.color;
+    ctx.fillRect(player.x, player.y, player.size, player.size);
   }
-}
 
-function detectCollision(rect1, rect2) {
-  return (
-    rect1.x < rect2.x + rect2.w &&
-    rect1.x + rect1.w > rect2.x &&
-    rect1.y < rect2.y + rect2.h &&
-    rect1.y + rect1.h > rect2.y
-  );
-}
-
-function checkCollisions() {
-  for (const ob of obstacles) {
-    if (detectCollision(player, ob)) {
-      gameOver = true;
-      document.getElementById("gameover").style.display = "block";
+  function drawBullets() {
+    for (let i = 0; i < bullets.length; i++) {
+      const b = bullets[i];
+      ctx.fillStyle = b.color;
+      ctx.fillRect(b.x, b.y, b.size, b.size);
+      b.y -= 8;
+      if (b.y < 0) bullets.splice(i, 1);
     }
   }
-}
 
-function draw() {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  function drawEnemies() {
+    for (let i = 0; i < enemies.length; i++) {
+      const e = enemies[i];
+      ctx.fillStyle = e.color;
+      ctx.fillRect(e.x, e.y, e.size, e.size);
+      e.y += e.speed;
 
-  // desenha o player
-  ctx.drawImage(playerImg, player.x, player.y, player.w, player.h);
+      // colisão com player
+      if (
+        e.x < player.x + player.size &&
+        e.x + e.size > player.x &&
+        e.y < player.y + player.size &&
+        e.y + e.size > player.y
+      ) {
+        alert("Game Over!");
+        document.location.reload();
+      }
 
-  // desenha obstáculos
-  for (const ob of obstacles) {
-    ctx.drawImage(ob.img, ob.x, ob.y, ob.w, ob.h);
+      // colisão com bala
+      for (let j = 0; j < bullets.length; j++) {
+        const b = bullets[j];
+        if (
+          b.x < e.x + e.size &&
+          b.x + b.size > e.x &&
+          b.y < e.y + e.size &&
+          b.y + b.size > e.y
+        ) {
+          enemies.splice(i, 1);
+          bullets.splice(j, 1);
+          break;
+        }
+      }
+    }
   }
-}
 
-let frameCount = 0;
-function gameLoop() {
-  if (gameOver) return;
-  frameCount++;
-  if (frameCount % 90 === 0) createObstacle();
+  function movePlayer() {
+    if (joystick.active) {
+      player.x += joystick.dx * player.speed;
+      player.y += joystick.dy * player.speed;
 
-  updatePlayer();
-  updateObstacles();
-  checkCollisions();
-  draw();
+      // limitar dentro da tela
+      if (player.x < 0) player.x = 0;
+      if (player.y < 0) player.y = 0;
+      if (player.x + player.size > canvas.width) player.x = canvas.width - player.size;
+      if (player.y + player.size > canvas.height) player.y = canvas.height - player.size;
+    }
+  }
 
-  requestAnimationFrame(gameLoop);
-}
+  function gameLoop() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    movePlayer();
+    drawPlayer();
+    drawBullets();
+    drawEnemies();
+    requestAnimationFrame(gameLoop);
+  }
 
-playerImg.onload = () => {
-  knifeImg.onload = () => {
-    planeImg.onload = () => {
-      gameLoop();
-    };
-  };
-};
+  gameLoop();
 </script>
 </body>
 </html>
