@@ -63,28 +63,22 @@
 
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      // Fundo (chão)
       ctx.fillStyle = "#228B22";
       ctx.fillRect(0, 350, canvas.width, 50);
 
-      // Texto
       ctx.fillStyle = "#000";
       ctx.font = "18px Arial";
       ctx.fillText("Pontuação: " + pontuacao, 20, 30);
 
-      // Personagem
       desenharPersonagem();
-
-      // Obstáculo
       desenharObstaculo();
-      obstaculoX -= 6;
 
+      obstaculoX -= 6;
       if (obstaculoX + obstaculoW < 0) {
         obstaculoX = 800 + Math.random() * 300;
         pontuacao++;
       }
 
-      // Pulo
       personagemY += velocidadeY;
       velocidadeY += gravidade;
 
@@ -103,20 +97,20 @@
         jogoAtivo = false;
         ctx.fillStyle = "#000";
         ctx.font = "30px Arial";
-        ctx.fillText("Fim de jogo! Aperte para reiniciar.", 200, 200);
+        ctx.fillText("Fim de jogo! Toque ou clique para reiniciar.", 150, 200);
       }
 
       requestAnimationFrame(atualizar);
     }
 
-    window.addEventListener("touchstart", () => {
+    function pularOuReiniciar() {
       if (!pulando && jogoAtivo) {
         velocidadeY = -20;
         pulando = true;
       } else if (!jogoAtivo) {
         reiniciarJogo();
       }
-    });
+    }
 
     function reiniciarJogo() {
       personagemY = 300;
@@ -127,7 +121,19 @@
       atualizar();
     }
 
-    // Começa o jogo só quando a imagem estiver pronta
+    // TOQUE (celular)
+    window.addEventListener("touchstart", pularOuReiniciar);
+
+    // CLIQUE (mouse)
+    window.addEventListener("mousedown", pularOuReiniciar);
+
+    // TECLA (barra de espaço)
+    window.addEventListener("keydown", function(e) {
+      if (e.code === "Space") {
+        pularOuReiniciar();
+      }
+    });
+
     personagem.onload = () => {
       atualizar();
     };
