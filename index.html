@@ -1,127 +1,211 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8" />
-  <title>O Guardião da Verdade</title>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { background: #000; overflow: hidden; font-family: 'Segoe UI', sans-serif; }
-    canvas { display: block; margin: auto; background: linear-gradient(#1c1c1c, #111); border: 2px solid #fff; }
-    #score {
-      position: absolute;
-      top: 10px;
-      left: 10px;
-      font-size: 20px;
-      color: #0f0;
-      font-weight: bold;
-      text-shadow: 0 0 5px #0f0;
-    }
-  </style>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Corrida da Salvação - Novo</title>
+<style>
+  body {
+    margin: 0;
+    background: linear-gradient(to top, #87ceeb, #f0f8ff);
+    overflow: hidden;
+    font-family: Arial, sans-serif;
+  }
+  canvas {
+    display: block;
+    margin: 0 auto;
+    background: #a0d8f7;
+    border: 2px solid #333;
+  }
+  #gameover {
+    position: fixed;
+    top: 40%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 3em;
+    color: red;
+    display: none;
+  }
+</style>
 </head>
 <body>
-  <canvas id="game" width="420" height="600"></canvas>
-  <div id="score">Pontos: 0</div>
+<canvas id="game" width="600" height="400"></canvas>
+<div id="gameover">Fim de Jogo!</div>
 
-  <script>
-    const canvas = document.getElementById("game");
-    const ctx = canvas.getContext("2d");
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
 
-    // Carregar imagem do personagem
-    const playerImg = new Image();
-    playerImg.src = "photo-output.png"; // já deve estar no seu GitHub
+const gravity = 0.8;
+const groundLevel = 330;
 
-    const player = { x: 30, y: 250, w: 50, h: 50 };
-    const bullets = [];
-    const enemies = [];
-    let score = 0;
+let gameOver = false;
 
-    function drawPlayer() {
-      ctx.drawImage(playerImg, player.x, player.y, player.w, player.h);
+// Personagem
+const player = {
+  x: 50,
+  y: groundLevel,
+  w: 50,
+  h: 70,
+  velocityY: 0,
+  isJumping: false,
+  speedX: 5
+};
+
+const keys = {
+  left: false,
+  right: false
+};
+
+// Imagens
+const playerImg = new Image();
+playerImg.src = "photo-output.png"; // aqui coloca o link/caminho da sua imagem no GitHub
+
+const knifeImg = new Image();
+knifeImg.src = "https://i.ibb.co/2SZDcFz/knife.png"; // Exemplo imagem faca
+
+const planeImg = new Image();
+planeImg.src = "https://i.ibb.co/HCZ1M2H/plane.png"; // Exemplo imagem avião
+
+// Obstáculos
+let obstacles = [];
+
+function createObstacle() {
+  const types = [
+    {img: knifeImg, w: 40, h: 20},
+    {img: planeImg, w: 60, h: 30}
+  ];
+  const type = types[Math.floor(Math.random() * types.length)];
+  const obstacle = {
+    x: canvas.width + 50,
+    y: groundLevel + 50 - type.h, // perto do chão
+    w: type.w,
+    h: type.h,
+    img: type.img,
+    speed: 6 + Math.random() * 3
+  };
+  obstacles.push(obstacle);
+}
+
+// Movimento do player no teclado
+document.addEventListener("keydown", (e) => {
+  if (e.key === "ArrowLeft") keys.left = true;
+  if (e.key === "ArrowRight") keys.right = true;
+});
+
+document.addEventListener("keyup", (e) => {
+  if (e.key === "ArrowLeft") keys.left = false;
+  if (e.key === "ArrowRight") keys.right = false;
+});
+
+// Pulo no toque (para celular)
+canvas.addEventListener("touchstart", () => {
+  if (!player.isJumping) {
+    player.velocityY = -15;
+    player.isJumping = true;
+  }
+});
+
+// Atualiza a posição do player
+function updatePlayer() {
+  // Movimentação horizontal
+  if (keys.left) {
+    player.x -= player.speedX;
+    if (player.x < 0) player.x = 0;
+  }
+  if (keys.right) {
+    player.x += player.speedX;
+    if (player.x + player.w > canvas.width) player.x = canvas.width - player.w;
+  }
+
+  // Gravidade e pulo
+  player.velocityY += gravity;
+  player.y += player.velocityY;
+
+  if (player.y > groundLevel) {
+    player.y = groundLevel;
+    player.isJumping = false;
+    player.velocityY = 0;
+  }
+}
+
+// Atualiza obstáculos
+function updateObstacles() {
+  for (let i = obstacles.length - 1; i >= 0; i--) {
+    const ob = obstacles[i];
+    ob.x -= ob.speed;
+
+    // Remove obstáculos que saíram da tela
+    if (ob.x + ob.w < 0) {
+      obstacles.splice(i, 1);
     }
+  }
+}
 
-    function drawBullets() {
-      ctx.fillStyle = "#00f";
-      bullets.forEach((b, i) => {
-        b.x += 6;
-        ctx.fillRect(b.x, b.y, 12, 4);
-        if (b.x > canvas.width) bullets.splice(i, 1);
-      });
+// Detecta colisão simples
+function detectCollision(rect1, rect2) {
+  return (
+    rect1.x < rect2.x + rect2.w &&
+    rect1.x + rect1.w > rect2.x &&
+    rect1.y < rect2.y + rect2.h &&
+    rect1.y + rect1.h > rect2.y
+  );
+}
+
+// Checa colisões com o jogador
+function checkCollisions() {
+  for (const ob of obstacles) {
+    if (detectCollision(player, ob)) {
+      gameOver = true;
+      document.getElementById("gameover").style.display = "block";
     }
+  }
+}
 
-    function drawEnemies() {
-      enemies.forEach((e, i) => {
-        e.x -= e.speed;
-        ctx.fillStyle = e.color;
-        ctx.beginPath();
-        ctx.moveTo(e.x, e.y + 20);
-        ctx.lineTo(e.x + 30, e.y);
-        ctx.lineTo(e.x + 30, e.y + 40);
-        ctx.closePath();
-        ctx.fill();
+// Desenha o personagem
+function drawPlayer() {
+  ctx.drawImage(playerImg, player.x, player.y, player.w, player.h);
+}
 
-        // Colisão com player
-        if (
-          e.x < player.x + player.w &&
-          e.x + 30 > player.x &&
-          e.y < player.y + player.h &&
-          e.y + 40 > player.y
-        ) {
-          alert("Você foi atingido por uma mentira! Reinicie e lute novamente!");
-          location.reload();
-        }
+// Desenha obstáculos
+function drawObstacles() {
+  obstacles.forEach(ob => {
+    ctx.drawImage(ob.img, ob.x, ob.y, ob.w, ob.h);
+  });
+}
 
-        // Colisão com projétil
-        bullets.forEach((b, j) => {
-          if (
-            b.x < e.x + 30 &&
-            b.x + 12 > e.x &&
-            b.y < e.y + 40 &&
-            b.y + 4 > e.y
-          ) {
-            enemies.splice(i, 1);
-            bullets.splice(j, 1);
-            score++;
-            document.getElementById("score").textContent = `Pontos: ${score}`;
-          }
-        });
+// Desenha o chão
+function drawGround() {
+  ctx.fillStyle = "#654321";
+  ctx.fillRect(0, groundLevel + player.h, canvas.width, canvas.height - groundLevel - player.h);
+}
 
-        if (e.x < -30) enemies.splice(i, 1);
-      });
-    }
+// Loop principal
+function gameLoop() {
+  if (gameOver) return;
 
-    function spawnEnemy() {
-      const y = Math.random() * (canvas.height - 60);
-      const type = Math.random() > 0.5 ? "faca" : "avião";
-      const color = type === "faca" ? "#f00" : "#0ff";
-      const speed = type === "faca" ? 3 : 2;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      enemies.push({ x: canvas.width + 30, y, type, color, speed });
-    }
+  drawGround();
 
-    function gameLoop() {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      drawPlayer();
-      drawBullets();
-      drawEnemies();
-      requestAnimationFrame(gameLoop);
-    }
+  updatePlayer();
+  drawPlayer();
 
-    // Controles
-    canvas.addEventListener("touchstart", () => {
-      bullets.push({ x: player.x + player.w, y: player.y + 20 });
-    });
+  updateObstacles();
+  drawObstacles();
 
-    document.addEventListener("keydown", (e) => {
-      if (e.key === "ArrowUp" && player.y > 10) player.y -= 20;
-      if (e.key === "ArrowDown" && player.y + player.h < canvas.height - 10)
-        player.y += 20;
-      if (e.key === " ") {
-        bullets.push({ x: player.x + player.w, y: player.y + 20 });
-      }
-    });
+  checkCollisions();
 
-    setInterval(spawnEnemy, 1200);
-    gameLoop();
-  </script>
+  requestAnimationFrame(gameLoop);
+}
+
+// Começa o jogo e cria obstáculos periódicos
+playerImg.onload = () => {
+  gameLoop();
+  setInterval(() => {
+    if (!gameOver) createObstacle();
+  }, 1500);
+};
+</script>
 </body>
 </html>
