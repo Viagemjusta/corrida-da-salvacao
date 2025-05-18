@@ -1,142 +1,97 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Corrida da Salvação</title>
-  <style>
-    * {
-      margin: 0;
-      padding: 0;
-    }
-
-    body {
-      background: linear-gradient(to top, #87CEEB, #ffffff);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      height: 100vh;
-    }
-
-    canvas {
-      background-color: #fff;
-      border: 4px solid #333;
-    }
-  </style>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Corrida da Salvação</title>
+<style>
+  body, html {
+    margin: 0; padding: 0; overflow: hidden; background: linear-gradient(to top, #87ceeb, #ffffff);
+    font-family: Arial, sans-serif;
+  }
+  canvas {
+    display: block;
+    margin: 0 auto;
+    background: #a0d8f7;
+    border: 2px solid #333;
+  }
+  #message {
+    position: fixed;
+    top: 10px; width: 100%; text-align: center;
+    font-size: 18px; color: #333;
+  }
+</style>
 </head>
 <body>
-  <canvas id="gameCanvas" width="800" height="400"></canvas>
 
-  <script>
-    const canvas = document.getElementById("gameCanvas");
-    const ctx = canvas.getContext("2d");
+<div id="message">Toque ou clique para pular e seguir com Jesus!</div>
+<canvas id="game" width="600" height="300"></canvas>
 
-    let personagem = new Image();
-    personagem.src = "https://github.com/Viagemjusta/corrida-da-salvacao/blob/main/photo-output.png?raw=true";
+<script>
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
 
-    let personagemX = 50;
-    let personagemY = 300;
-    let personagemW = 50;
-    let personagemH = 50;
-    let velocidadeY = 0;
-    let gravidade = 1.5;
-    let pulando = false;
+const playerImg = new Image();
+playerImg.src = 'https://github.com/Viagemjusta/corrida-da-salvacao/blob/main/photo-output.png?raw=true';
 
-    let obstaculoX = 800;
-    let obstaculoW = 30;
-    let obstaculoH = 60;
+const gravity = 0.7;
+const jumpForce = -12;
 
-    let jogoAtivo = true;
-    let pontuacao = 0;
+let player = {
+  x: 50,
+  y: 0,
+  width: 50,
+  height: 50,
+  velocityY: 0,
+  onGround: false,
+};
 
-    function desenharPersonagem() {
-      ctx.drawImage(personagem, personagemX, personagemY, personagemW, personagemH);
-    }
+let groundY = canvas.height - player.height - 30;
 
-    function desenharObstaculo() {
-      ctx.fillStyle = "#8B0000";
-      ctx.fillRect(obstaculoX, 340, obstaculoW, obstaculoH);
-    }
+function update() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    function atualizar() {
-      if (!jogoAtivo) return;
+  // chão
+  ctx.fillStyle = '#2e8b57';
+  ctx.fillRect(0, groundY + player.height, canvas.width, 30);
 
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+  // gravidade
+  player.velocityY += gravity;
+  player.y += player.velocityY;
 
-      ctx.fillStyle = "#228B22";
-      ctx.fillRect(0, 350, canvas.width, 50);
+  // colisão chão
+  if (player.y > groundY) {
+    player.y = groundY;
+    player.velocityY = 0;
+    player.onGround = true;
+  }
 
-      ctx.fillStyle = "#000";
-      ctx.font = "18px Arial";
-      ctx.fillText("Pontuação: " + pontuacao, 20, 30);
+  // desenhar player
+  ctx.drawImage(playerImg, player.x, player.y, player.width, player.height);
 
-      desenharPersonagem();
-      desenharObstaculo();
+  requestAnimationFrame(update);
+}
 
-      obstaculoX -= 6;
-      if (obstaculoX + obstaculoW < 0) {
-        obstaculoX = 800 + Math.random() * 300;
-        pontuacao++;
-      }
+function jump() {
+  if (player.onGround) {
+    player.velocityY = jumpForce;
+    player.onGround = false;
+  }
+}
 
-      personagemY += velocidadeY;
-      velocidadeY += gravidade;
+// esperar imagem carregar e começar jogo
+playerImg.onload = () => {
+  player.y = groundY;
+  update();
+}
 
-      if (personagemY > 300) {
-        personagemY = 300;
-        velocidadeY = 0;
-        pulando = false;
-      }
+// controlar pulo no toque ou clique
+window.addEventListener('keydown', (e) => {
+  if (e.code === 'Space') jump();
+});
+window.addEventListener('touchstart', jump);
+window.addEventListener('mousedown', jump);
+</script>
 
-      // Colisão
-      if (
-        personagemX < obstaculoX + obstaculoW &&
-        personagemX + personagemW > obstaculoX &&
-        personagemY + personagemH > 340
-      ) {
-        jogoAtivo = false;
-        ctx.fillStyle = "#000";
-        ctx.font = "30px Arial";
-        ctx.fillText("Fim de jogo! Toque ou clique para reiniciar.", 150, 200);
-      }
-
-      requestAnimationFrame(atualizar);
-    }
-
-    function pularOuReiniciar() {
-      if (!pulando && jogoAtivo) {
-        velocidadeY = -20;
-        pulando = true;
-      } else if (!jogoAtivo) {
-        reiniciarJogo();
-      }
-    }
-
-    function reiniciarJogo() {
-      personagemY = 300;
-      velocidadeY = 0;
-      obstaculoX = 800;
-      pontuacao = 0;
-      jogoAtivo = true;
-      atualizar();
-    }
-
-    // TOQUE (celular)
-    window.addEventListener("touchstart", pularOuReiniciar);
-
-    // CLIQUE (mouse)
-    window.addEventListener("mousedown", pularOuReiniciar);
-
-    // TECLA (barra de espaço)
-    window.addEventListener("keydown", function(e) {
-      if (e.code === "Space") {
-        pularOuReiniciar();
-      }
-    });
-
-    personagem.onload = () => {
-      atualizar();
-    };
-  </script>
 </body>
 </html>
