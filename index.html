@@ -1,165 +1,233 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pt-BR">
 <head>
-  <meta charset="UTF-8" />
-  <title>Defender o Céu</title>
-  <style>
-    html, body {
-      margin: 0;
-      padding: 0;
-      overflow: hidden;
-      background: #000;
-      touch-action: none;
-    }
-    canvas { display: block; }
-    #joystick-container {
-      position: absolute;
-      bottom: 20px;
-      left: 20px;
-      width: 120px;
-      height: 120px;
-      z-index: 10;
-    }
-    #score {
-      position: absolute;
-      top: 20px;
-      left: 20px;
-      color: white;
-      font-family: sans-serif;
-      font-size: 20px;
-      z-index: 10;
-    }
-  </style>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+<title>Jardim da Paz 3D</title>
+<style>
+  html, body {
+    margin: 0; padding: 0; overflow: hidden; height: 100%; background: #87ceeb;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  }
+  #container {
+    position: relative;
+    width: 100vw; height: 100vh;
+    touch-action: none;
+  }
+  canvas {
+    display: block;
+  }
+  #joystick {
+    position: absolute;
+    bottom: 30px; left: 30px;
+    width: 120px; height: 120px;
+    background: rgba(255,255,255,0.25);
+    border-radius: 50%;
+    touch-action: none;
+    user-select: none;
+  }
+  #stick {
+    position: absolute;
+    top: 40px; left: 40px;
+    width: 40px; height: 40px;
+    background: rgba(255,255,255,0.7);
+    border-radius: 50%;
+    transform: translate(0, 0);
+  }
+  #instructions {
+    position: absolute;
+    top: 10px; left: 50%; transform: translateX(-50%);
+    color: #fff;
+    text-shadow: 0 0 5px #000;
+    font-weight: bold;
+    font-size: 1.2rem;
+    user-select: none;
+  }
+</style>
 </head>
 <body>
-  <div id="score">Pontuação: 0</div>
-  <div id="joystick-container"></div>
+<div id="container"></div>
+<div id="joystick"><div id="stick"></div></div>
+<div id="instructions">Use o joystick para andar. Toque nas plantas para regar.</div>
+<audio id="music" loop autoplay>
+  <source src="https://cdn.pixabay.com/download/audio/2022/03/10/audio_d2e097983d.mp3?filename=soft-ambient-relaxing-background-music-5495.mp3" type="audio/mpeg" />
+</audio>
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r148/three.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/nipplejs@0.9.0/dist/nipplejs.min.js"></script>
-  <script>
-    // Cena e câmera
-    const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(70, window.innerWidth/window.innerHeight, 0.1, 1000);
-    camera.position.z = 10;
+<script src="https://cdn.jsdelivr.net/npm/three@0.153.0/build/three.min.js"></script>
+<script>
+(() => {
+  const container = document.getElementById('container');
+  const joystick = document.getElementById('joystick');
+  const stick = document.getElementById('stick');
+  const music = document.getElementById('music');
+  music.volume = 0.15;
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
+  // Setup Three.js scene
+  const scene = new THREE.Scene();
+
+  // Camera setup
+  const camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 1000);
+  camera.position.set(0, 10, 15);
+  camera.lookAt(0, 0, 0);
+
+  // Renderer setup
+  const renderer = new THREE.WebGLRenderer({antialias:true, alpha:false});
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setClearColor(0x87ceeb); // céu azul suave
+  container.appendChild(renderer.domElement);
+
+  // Luz ambiente e direcional
+  const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+  scene.add(ambientLight);
+  const dirLight = new THREE.DirectionalLight(0xffffff, 0.7);
+  dirLight.position.set(5, 10, 7);
+  scene.add(dirLight);
+
+  // Solo verde (grama)
+  const groundGeo = new THREE.PlaneGeometry(50, 50);
+  const groundMat = new THREE.MeshLambertMaterial({color: 0x3a7a27});
+  const ground = new THREE.Mesh(groundGeo, groundMat);
+  ground.rotation.x = -Math.PI / 2;
+  ground.position.y = 0;
+  scene.add(ground);
+
+  // Personagem: esfera azul simples
+  const playerGeo = new THREE.SphereGeometry(0.8, 24, 24);
+  const playerMat = new THREE.MeshStandardMaterial({color: 0x3366ff});
+  const player = new THREE.Mesh(playerGeo, playerMat);
+  player.position.y = 0.8;
+  scene.add(player);
+
+  // Plantas: pequenas esferas verdes espalhadas
+  const plantGeo = new THREE.SphereGeometry(0.5, 16, 16);
+  const plantMatDry = new THREE.MeshStandardMaterial({color: 0x6b8e23}); // seco/amarelo esverdeado
+  const plantMatWet = new THREE.MeshStandardMaterial({color: 0x2ecc40}); // verde vivo
+
+  // Criar várias plantas
+  const plants = [];
+  for(let i=0; i<12; i++){
+    const plant = new THREE.Mesh(plantGeo, plantMatDry.clone());
+    plant.position.set(
+      (Math.random()-0.5)*40,
+      0.5,
+      (Math.random()-0.5)*40
+    );
+    plant.userData = { watered: false, growTimer: 0 };
+    scene.add(plant);
+    plants.push(plant);
+  }
+
+  // Controle joystick
+  let joystickActive = false;
+  let joystickPos = {x:0, y:0};
+  let stickPos = {x:0, y:0};
+  const maxStickDist = 40;
+
+  joystick.addEventListener('pointerdown', (e) => {
+    joystickActive = true;
+    moveStick(e);
+  });
+  window.addEventListener('pointermove', (e) => {
+    if(joystickActive){
+      moveStick(e);
+    }
+  });
+  window.addEventListener('pointerup', (e) => {
+    joystickActive = false;
+    stick.style.transform = 'translate(0, 0)';
+    joystickPos = {x:0,y:0};
+  });
+
+  function moveStick(e){
+    const rect = joystick.getBoundingClientRect();
+    let x = e.clientX - rect.left - rect.width/2;
+    let y = e.clientY - rect.top - rect.height/2;
+    const dist = Math.sqrt(x*x + y*y);
+    if(dist > maxStickDist){
+      const angle = Math.atan2(y,x);
+      x = Math.cos(angle)*maxStickDist;
+      y = Math.sin(angle)*maxStickDist;
+    }
+    stick.style.transform = `translate(${x}px, ${y}px)`;
+    joystickPos = {x: x/maxStickDist, y: -y/maxStickDist};
+  }
+
+  // Movimentação do player
+  let velocity = {x:0, z:0};
+  const speed = 0.15;
+
+  // Detectar toque para regar plantas
+  let raycaster = new THREE.Raycaster();
+  let mouse = new THREE.Vector2();
+
+  function onTouch(event){
+    event.preventDefault();
+    if(event.touches){
+      mouse.x = (event.touches[0].clientX / window.innerWidth) * 2 -1;
+      mouse.y = -(event.touches[0].clientY / window.innerHeight) * 2 +1;
+    } else {
+      mouse.x = (event.clientX / window.innerWidth) * 2 -1;
+      mouse.y = -(event.clientY / window.innerHeight) * 2 +1;
+    }
+
+    raycaster.setFromCamera(mouse, camera);
+    const intersects = raycaster.intersectObjects(plants);
+
+    if(intersects.length > 0){
+      const plant = intersects[0].object;
+      plant.userData.watered = true;
+      plant.userData.growTimer = 100; // vai crescer
+      plant.material.color.set(plantMatWet.color);
+    }
+  }
+  window.addEventListener('touchstart', onTouch, {passive:false});
+  window.addEventListener('mousedown', onTouch);
+
+  // Loop animação
+  function animate(){
+    requestAnimationFrame(animate);
+
+    // Atualiza velocidade pelo joystick
+    velocity.x = joystickPos.x * speed;
+    velocity.z = joystickPos.y * speed;
+
+    // Atualiza posição do player com limites do chão
+    player.position.x += velocity.x;
+    player.position.z += velocity.z;
+    player.position.x = Math.min(Math.max(player.position.x, -24), 24);
+    player.position.z = Math.min(Math.max(player.position.z, -24), 24);
+
+    // Faz câmera seguir o player
+    camera.position.x += (player.position.x - camera.position.x)*0.1;
+    camera.position.z += (player.position.z + 15 - camera.position.z)*0.1;
+    camera.lookAt(player.position.x, player.position.y, player.position.z);
+
+    // Crescimento das plantas
+    plants.forEach(plant => {
+      if(plant.userData.watered && plant.userData.growTimer > 0){
+        plant.userData.growTimer--;
+        plant.scale.setScalar(1 + (100 - plant.userData.growTimer)*0.01);
+        if(plant.userData.growTimer === 0){
+          plant.userData.watered = false;
+          // Mantém a planta maior e verde
+          plant.material.color.set(plantMatWet.color);
+        }
+      }
+    });
+
+    renderer.render(scene, camera);
+  }
+
+  animate();
+
+  // Ajusta o canvas ao redimensionar a tela
+  window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth/window.innerHeight;
+    camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
-    document.body.appendChild(renderer.domElement);
+  });
 
-    // Luz
-    const light = new THREE.DirectionalLight(0xffffff, 1);
-    light.position.set(10, 10, 10).normalize();
-    scene.add(light);
-
-    // Avião (jogador)
-    const playerGeometry = new THREE.ConeGeometry(0.5, 1.5, 8);
-    const playerMaterial = new THREE.MeshStandardMaterial({ color: 0x00ffcc });
-    const player = new THREE.Mesh(playerGeometry, playerMaterial);
-    player.rotation.x = Math.PI / 2;
-    player.position.z = 0;
-    scene.add(player);
-
-    // Tiros
-    const bullets = [];
-    function shoot() {
-      const bullet = new THREE.Mesh(
-        new THREE.SphereGeometry(0.1, 8, 8),
-        new THREE.MeshBasicMaterial({ color: 0xffff00 })
-      );
-      bullet.position.set(player.position.x, player.position.y, player.position.z - 0.5);
-      scene.add(bullet);
-      bullets.push(bullet);
-    }
-    setInterval(shoot, 400);
-
-    // Inimigos
-    const enemies = [];
-    function spawnEnemy() {
-      const enemy = new THREE.Mesh(
-        new THREE.BoxGeometry(0.8, 0.8, 0.8),
-        new THREE.MeshStandardMaterial({ color: 0xff3333 })
-      );
-      enemy.position.set(
-        (Math.random() - 0.5) * 10,
-        (Math.random() - 0.5) * 10,
-        -30
-      );
-      scene.add(enemy);
-      enemies.push(enemy);
-    }
-    setInterval(spawnEnemy, 1000);
-
-    // Joystick
-    let input = { x: 0, y: 0 };
-    const joystick = nipplejs.create({
-      zone: document.getElementById('joystick-container'),
-      mode: 'static',
-      position: { left: '60px', bottom: '60px' },
-      color: 'white'
-    });
-
-    joystick.on('move', (evt, data) => {
-      if (data && data.vector) {
-        input.x = data.vector.x;
-        input.y = data.vector.y;
-      }
-    });
-
-    joystick.on('end', () => {
-      input.x = 0;
-      input.y = 0;
-    });
-
-    // Pontuação
-    let score = 0;
-    const scoreText = document.getElementById('score');
-
-    // Animação
-    function animate() {
-      requestAnimationFrame(animate);
-
-      // Movimento do jogador
-      player.position.x += input.x * 0.2;
-      player.position.y += input.y * 0.2;
-
-      // Tiros
-      for (let i = bullets.length - 1; i >= 0; i--) {
-        bullets[i].position.z -= 0.5;
-        if (bullets[i].position.z < -50) {
-          scene.remove(bullets[i]);
-          bullets.splice(i, 1);
-        }
-      }
-
-      // Inimigos
-      for (let i = enemies.length - 1; i >= 0; i--) {
-        enemies[i].position.z += 0.2;
-
-        // Colisão com tiro
-        for (let j = bullets.length - 1; j >= 0; j--) {
-          if (enemies[i].position.distanceTo(bullets[j].position) < 0.6) {
-            scene.remove(enemies[i]);
-            scene.remove(bullets[j]);
-            enemies.splice(i, 1);
-            bullets.splice(j, 1);
-            score += 10;
-            scoreText.textContent = "Pontuação: " + score;
-            break;
-          }
-        }
-
-        // Colisão com jogador
-        if (enemies[i] && enemies[i].position.distanceTo(player.position) < 0.8) {
-          alert("Você foi atingido! Pontuação: " + score);
-          window.location.reload();
-        }
-      }
-
-      renderer.render(scene, camera);
-    }
-
-    animate();
-  </script>
+})();
+</script>
 </body>
 </html>
