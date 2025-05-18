@@ -1,14 +1,18 @@
 <!DOCTYPE html>
-<html lang="pt">
+<html lang="pt-br">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Corrida da Salvação</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <h1>Corrida da Salvação</h1>
-  <canvas id="gameCanvas" width="800" height="300"></canvas>
-  <p id="mensagemBiblica"></p>
+  <p id="score">Pontuação: 0</p>
+  <div class="game-container">
+    <div id="player"></div>
+    <div id="obstacle"></div>
+  </div>
+
   <script src="script.js"></script>
 </body>
-</html>
