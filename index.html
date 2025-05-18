@@ -1,60 +1,105 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Corrida da Salvação</title>
-  <style>
-    body {
-      margin: 0;
-      overflow: hidden;
-      background: black;
-    }
-    canvas {
-      display: block;
-    }
-    #joystick {
-      position: absolute;
-      left: 20px;
-      bottom: 20px;
-      width: 100px;
-      height: 100px;
-      background: rgba(255,255,255,0.1);
-      border-radius: 50%;
-      touch-action: none;
-    }
-    #stick {
-      width: 50px;
-      height: 50px;
-      background: red;
-      border-radius: 50%;
-      position: absolute;
-      top: 25px;
-      left: 25px;
-      touch-action: none;
-    }
-  </style>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>Corrida da Salvação - Versão Melhorada</title>
+<style>
+  * {
+    box-sizing: border-box;
+  }
+  body, html {
+    margin: 0; padding: 0; overflow: hidden;
+    background: black;
+    touch-action: none;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+  }
+  #gameCanvas {
+    display: block;
+    background: black;
+    width: 100vw;
+    height: 100vh;
+  }
+  #joystick {
+    position: fixed;
+    left: 20px;
+    bottom: 20px;
+    width: 120px;
+    height: 120px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 50%;
+    touch-action: none;
+    z-index: 10;
+  }
+  #stick {
+    width: 60px;
+    height: 60px;
+    background: red;
+    border-radius: 50%;
+    position: absolute;
+    top: 30px;
+    left: 30px;
+    touch-action: none;
+  }
+  #overlay {
+    position: fixed;
+    top:0; left:0;
+    width: 100vw; height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    color: white;
+    font-size: 2em;
+    background: rgba(0,0,0,0.7);
+    z-index: 20;
+    user-select: none;
+    display: none;
+    flex-direction: column;
+  }
+  #overlay button {
+    margin-top: 20px;
+    font-size: 1.2em;
+    padding: 10px 25px;
+    border: none;
+    border-radius: 8px;
+    background: red;
+    color: white;
+  }
+</style>
 </head>
 <body>
 
 <canvas id="gameCanvas"></canvas>
-
-<div id="joystick">
-  <div id="stick"></div>
+<div id="joystick"><div id="stick"></div></div>
+<div id="overlay">
+  <div>Você morreu!</div>
+  <button id="restartBtn">Reiniciar</button>
 </div>
 
 <script>
   const canvas = document.getElementById("gameCanvas");
   const ctx = canvas.getContext("2d");
-  canvas.width = window.innerWidth;
-  canvas.height = window.innerHeight;
+
+  let w, h;
+  function resize() {
+    w = window.innerWidth;
+    h = window.innerHeight;
+    canvas.width = w * devicePixelRatio;
+    canvas.height = h * devicePixelRatio;
+    canvas.style.width = w + 'px';
+    canvas.style.height = h + 'px';
+    ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+  }
+  resize();
+  window.addEventListener('resize', resize);
 
   const player = {
-    x: canvas.width / 2,
-    y: canvas.height - 100,
-    size: 40,
+    x: w / 2,
+    y: h / 2,
+    size: 50,
     color: "red",
-    speed: 4
+    speed: 5
   };
 
   const bullets = [];
@@ -62,8 +107,6 @@
 
   let joystick = {
     active: false,
-    x: 0,
-    y: 0,
     dx: 0,
     dy: 0
   };
@@ -73,134 +116,372 @@
 
   joystickBase.addEventListener("touchstart", (e) => {
     joystick.active = true;
-    const rect = joystickBase.getBoundingClientRect();
-    const touch = e.touches[0];
-    joystick.x = touch.clientX - rect.left - 50;
-    joystick.y = touch.clientY - rect.top - 50;
-    moveStick(joystick.x, joystick.y);
-  });
+    e.preventDefault();
+  }, {passive:false});
 
   joystickBase.addEventListener("touchmove", (e) => {
+    e.preventDefault();
     const rect = joystickBase.getBoundingClientRect();
     const touch = e.touches[0];
-    const x = touch.clientX - rect.left - 50;
-    const y = touch.clientY - rect.top - 50;
-    joystick.dx = x / 50;
-    joystick.dy = y / 50;
-    moveStick(x, y);
-  });
+    let x = touch.clientX - rect.left - rect.width / 2;
+    let y = touch.clientY - rect.top - rect.height / 2;
 
-  joystickBase.addEventListener("touchend", () => {
+    const maxDistance = rect.width / 2;
+    const distance = Math.min(Math.sqrt(x*x + y*y), maxDistance);
+    const angle = Math.atan2(y, x);
+
+    joystick.dx = Math.cos(angle) * (distance / maxDistance);
+    joystick.dy = Math.sin(angle) * (distance / maxDistance);
+
+    joystickStick.style.left = `${rect.width/2 + joystick.dx * maxDistance - joystickStick.offsetWidth/2}px`;
+    joystickStick.style.top = `${rect.height/2 + joystick.dy * maxDistance - joystickStick.offsetHeight/2}px`;
+  }, {passive:false});
+
+  joystickBase.addEventListener("touchend", (e) => {
+    e.preventDefault();
     joystick.active = false;
     joystick.dx = 0;
     joystick.dy = 0;
-    moveStick(0, 0);
-  });
+    joystickStick.style.left = '30px';
+    joystickStick.style.top = '30px';
+  }, {passive:false});
 
-  function moveStick(x, y) {
-    joystickStick.style.left = `${25 + x}px`;
-    joystickStick.style.top = `${25 + y}px`;
-  }
-
-  canvas.addEventListener("touchstart", () => {
-    shoot();
-  });
+  // Atirar ao tocar fora do joystick
+  canvas.addEventListener("touchstart", (e) => {
+    const touch = e.touches[0];
+    const rect = joystickBase.getBoundingClientRect();
+    if (
+      touch.clientX < rect.left || touch.clientX > rect.right ||
+      touch.clientY < rect.top || touch.clientY > rect.bottom
+    ) {
+      shoot();
+    }
+  }, {passive:false});
 
   function shoot() {
     bullets.push({
-      x: player.x + player.size / 2 - 2,
-      y: player.y,
-      size: 4,
+      x: player.x + player.size/2 - 5,
+      y: player.y + player.size/2 - 5,
+      size: 10,
+      speed: 10,
       color: "white"
     });
   }
 
+  // Enemies saem de todos os lados
   function spawnEnemy() {
-    const size = 30 + Math.random() * 20;
+    const size = 30 + Math.random() * 30;
+    const side = Math.floor(Math.random() * 4); // 0 = topo, 1 = direita, 2 = baixo, 3 = esquerda
+    let x, y, speedX = 0, speedY = 0;
+    const speed = 2 + Math.random() * 2;
+
+    switch(side) {
+      case 0: // topo, vai pra baixo
+        x = Math.random() * (w - size);
+        y = -size;
+        speedY = speed;
+        break;
+      case 1: // direita, vai pra esquerda
+        x = w + size;
+        y = Math.random() * (h - size);
+        speedX = -speed;
+        break;
+      case 2: // baixo, vai pra cima
+        x = Math.random() * (w - size);
+        y = h + size;
+        speedY = -speed;
+        break;
+      case 3: // esquerda, vai pra direita
+        x = -size;
+        y = Math.random() * (h - size);
+        speedX = speed;
+        break;
+    }
+
     enemies.push({
-      x: Math.random() * (canvas.width - size),
-      y: -size,
-      size: size,
-      speed: 2 + Math.random() * 3,
+      x, y, size,
+      speedX, speedY,
       color: "purple"
     });
   }
 
-  setInterval(spawnEnemy, 1000);
+  let spawnInterval = setInterval(spawnEnemy, 900);
 
-  function drawPlayer() {
-    ctx.fillStyle = player.color;
-    ctx.fillRect(player.x, player.y, player.size, player.size);
+  const overlay = document.getElementById('overlay');
+  const restartBtn = document.getElementById('restartBtn');
+
+  let gameOver = false;
+
+  function resetGame() {
+    player.x = w/2;
+    player.y = h/2;
+    bullets.length = 0;
+    enemies.length = 0;
+    gameOver = false;
+    overlay.style.display = 'none';
+    clearInterval(spawnInterval);
+    spawnInterval = setInterval(spawnEnemy, 900);
+    gameLoop();
   }
 
-  function drawBullets() {
-    for (let i = 0; i < bullets.length; i++) {
-      const b = bullets[i];
-      ctx.fillStyle = b.color;
-      ctx.fillRect(b.x, b.y, b.size, b.size);
-      b.y -= 8;
-      if (b.y < 0) bullets.splice(i, 1);
+  restartBtn.addEventListener('click', <script>
+  // Variáveis do jogo
+  const player = {
+    x: 100,
+    y: 100,
+    size: 40,
+    color: "red",
+    speed: 4,
+    alive: true
+  };
+
+  const bullets = [];
+  const enemies = [];
+  let enemySpawnInterval;
+  let animationId;
+  let canvas, ctx;
+  let joystick = { active: false, startX: 0, startY: 0, x: 0, y: 0, radius: 40, knobRadius: 20 };
+  let score = 0;
+
+  function setup() {
+    canvas = document.getElementById("gameCanvas");
+    ctx = canvas.getContext("2d");
+    resizeCanvas();
+
+    // Spawna inimigos a cada 1.5 segundos
+    enemySpawnInterval = setInterval(spawnEnemy, 1500);
+
+    // Eventos toque para joystick
+    canvas.addEventListener("touchstart", touchStartHandler, false);
+    canvas.addEventListener("touchmove", touchMoveHandler, false);
+    canvas.addEventListener("touchend", touchEndHandler, false);
+
+    // Atirar ao tocar com outro dedo (não joystick)
+    canvas.addEventListener("touchstart", shootHandler, false);
+
+    // Iniciar animação
+    animationId = requestAnimationFrame(gameLoop);
+  }
+
+  function resizeCanvas() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+  }
+
+  function spawnEnemy() {
+    if (!player.alive) return;
+    // Inimigos aparecem em bordas aleatórias e seguem para o player
+    const size = 30;
+    const speed = 1 + Math.random() * 1.5;
+    let x, y;
+
+    const edge = Math.floor(Math.random() * 4);
+    if (edge === 0) { // topo
+      x = Math.random() * canvas.width;
+      y = -size;
+    } else if (edge === 1) { // direita
+      x = canvas.width + size;
+      y = Math.random() * canvas.height;
+    } else if (edge === 2) { // baixo
+      x = Math.random() * canvas.width;
+      y = canvas.height + size;
+    } else { // esquerda
+      x = -size;
+      y = Math.random() * canvas.height;
+    }
+
+    enemies.push({ x, y, size, speed, color: "gray" });
+  }
+
+  function shootHandler(e) {
+    e.preventDefault();
+    if (!player.alive) {
+      restartGame();
+      return;
+    }
+    // Não dispara se o toque foi para o joystick
+    for (let touch of e.touches) {
+      if (isInsideJoystick(touch)) return;
+    }
+    // Cria bala do player
+    bullets.push({
+      x: player.x + player.size / 2,
+      y: player.y + player.size / 2,
+      size: 8,
+      speed: 7,
+      color: "yellow"
+    });
+  }
+
+  function isInsideJoystick(touch) {
+    const rect = canvas.getBoundingClientRect();
+    const tx = touch.clientX - rect.left;
+    const ty = touch.clientY - rect.top;
+    const dx = tx - joystick.startX;
+    const dy = ty - joystick.startY;
+    return joystick.active && Math.sqrt(dx * dx + dy * dy) <= joystick.radius * 2;
+  }
+
+  function touchStartHandler(e) {
+    e.preventDefault();
+    for (let touch of e.touches) {
+      const rect = canvas.getBoundingClientRect();
+      const tx = touch.clientX - rect.left;
+      const ty = touch.clientY - rect.top;
+      // Se ainda não ativou joystick e o toque foi na metade esquerda da tela, ativa joystick
+      if (!joystick.active && tx < canvas.width / 2) {
+        joystick.active = true;
+        joystick.startX = tx;
+        joystick.startY = ty;
+        joystick.x = tx;
+        joystick.y = ty;
+      }
     }
   }
 
-  function drawEnemies() {
-    for (let i = 0; i < enemies.length; i++) {
-      const e = enemies[i];
-      ctx.fillStyle = e.color;
-      ctx.fillRect(e.x, e.y, e.size, e.size);
-      e.y += e.speed;
+  function touchMoveHandler(e) {
+    e.preventDefault();
+    if (!joystick.active) return;
+    const rect = canvas.getBoundingClientRect();
+    const touch = e.touches[0];
+    let tx = touch.clientX - rect.left;
+    let ty = touch.clientY - rect.top;
 
-      // colisão com player
-      if (
-        e.x < player.x + player.size &&
-        e.x + e.size > player.x &&
-        e.y < player.y + player.size &&
-        e.y + e.size > player.y
-      ) {
-        alert("Game Over!");
-        document.location.reload();
+    // Limita o movimento do knob do joystick dentro do raio
+    const dx = tx - joystick.startX;
+    const dy = ty - joystick.startY;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist > joystick.radius) {
+      const angle = Math.atan2(dy, dx);
+      tx = joystick.startX + joystick.radius * Math.cos(angle);
+      ty = joystick.startY + joystick.radius * Math.sin(angle);
+    }
+    joystick.x = tx;
+    joystick.y = ty;
+
+    // Move o player de acordo com o joystick
+    const moveX = (joystick.x - joystick.startX) / joystick.radius * player.speed;
+    const moveY = (joystick.y - joystick.startY) / joystick.radius * player.speed;
+    player.x += moveX;
+    player.y += moveY;
+
+    // Limitar dentro da tela
+    if (player.x < 0) player.x = 0;
+    if (player.y < 0) player.y = 0;
+    if (player.x > canvas.width - player.size) player.x = canvas.width - player.size;
+    if (player.y > canvas.height - player.size) player.y = canvas.height - player.size;
+  }
+
+  function touchEndHandler(e) {
+    e.preventDefault();
+    joystick.active = false;
+  }
+
+  function gameLoop() {
+    if (!ctx) return;
+
+    // Fundo preto
+    ctx.fillStyle = "black";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    if (player.alive) {
+      // Desenha jogador
+      ctx.fillStyle = player.color;
+      ctx.fillRect(player.x, player.y, player.size, player.size);
+    }
+
+    // Desenha joystick
+    if (joystick.active) {
+      ctx.globalAlpha = 0.4;
+      ctx.beginPath();
+      ctx.arc(joystick.startX, joystick.startY, joystick.radius, 0, Math.PI * 2);
+      ctx.fillStyle = "gray";
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.arc(joystick.x, joystick.y, joystick.knobRadius, 0, Math.PI * 2);
+      ctx.fillStyle = "white";
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+
+    // Atualiza e desenha balas
+    for (let i = bullets.length - 1; i >= 0; i--) {
+      const b = bullets[i];
+      b.y -= b.speed;
+      ctx.fillStyle = b.color;
+      ctx.beginPath();
+      ctx.arc(b.x, b.y, b.size, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Remove bala fora da tela
+      if (b.y < 0) {
+        bullets.splice(i, 1);
+      }
+    }
+
+    // Atualiza inimigos e verifica colisão
+    for (let i = enemies.length - 1; i >= 0; i--) {
+      const enemy = enemies[i];
+
+      // Move inimigo em direção ao jogador
+      const dx = player.x + player.size / 2 - (enemy.x + enemy.size / 2);
+      const dy = player.y + player.size / 2 - (enemy.y + enemy.size / 2);
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      enemy.x += (dx / dist) * enemy.speed;
+      enemy.y += (dy / dist) * enemy.speed;
+
+      ctx.fillStyle = enemy.color;
+      ctx.fillRect(enemy.x, enemy.y, enemy.size, enemy.size);
+
+      // Verifica colisão com jogador
+      if (player.alive && rectsOverlap(player, enemy)) {
+        player.alive = false;
+        clearInterval(enemySpawnInterval);
+        setTimeout(() => alert("Você morreu! Toque a tela para reiniciar."), 100);
       }
 
-      // colisão com bala
-      for (let j = 0; j < bullets.length; j++) {
-        const b = bullets[j];
-        if (
-          b.x < e.x + e.size &&
-          b.x + b.size > e.x &&
-          b.y < e.y + e.size &&
-          b.y + b.size > e.y
-        ) {
+      // Verifica colisão com balas
+      for (let j = bullets.length - 1; j >= 0; j--) {
+        if (rectsOverlap(enemies[i], bullets[j])) {
           enemies.splice(i, 1);
           bullets.splice(j, 1);
+          score++;
           break;
         }
       }
     }
+
+    // Desenha pontuação
+    ctx.fillStyle = "white";
+    ctx.font = "20px Arial";
+    ctx.fillText("Score: " + score, 10, 30);
+
+    animationId = requestAnimationFrame(gameLoop);
   }
 
-  function movePlayer() {
-    if (joystick.active) {
-      player.x += joystick.dx * player.speed;
-      player.y += joystick.dy * player.speed;
-
-      // limitar dentro da tela
-      if (player.x < 0) player.x = 0;
-      if (player.y < 0) player.y = 0;
-      if (player.x + player.size > canvas.width) player.x = canvas.width - player.size;
-      if (player.y + player.size > canvas.height) player.y = canvas.height - player.size;
-    }
+  function rectsOverlap(r1, r2) {
+    return !(r2.x > r1.x + r1.size || 
+             r2.x + r2.size < r1.x || 
+             r2.y > r1.y + r1.size ||
+             r2.y + r2.size < r1.y);
   }
 
-  function gameLoop() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    movePlayer();
-    drawPlayer();
-    drawBullets();
-    drawEnemies();
-    requestAnimationFrame(gameLoop);
+  function restartGame() {
+    player.x = canvas.width / 2 - player.size / 2;
+    player.y = canvas.height / 2 - player.size / 2;
+    player.alive = true;
+    enemies.length = 0;
+    bullets.length = 0;
+    score = 0;
+    enemySpawnInterval = setInterval(spawnEnemy, 1500);
   }
 
-  gameLoop();
+  window.onload = setup;
+  window.onresize = () => {
+    resizeCanvas();
+    // Ajusta posição do player ao redimensionar
+    if (player.x > canvas.width - player.size) player.x = canvas.width - player.size;
+    if (player.y > canvas.height - player.size) player.y = canvas.height - player.size;
+  };
 </script>
-</body>
-</html>
