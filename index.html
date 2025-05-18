@@ -1,120 +1,118 @@
 <!DOCTYPE html>
-<html lang="pt">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Fuga Neon</title>
+  <title>Corrida 3D Infinita</title>
   <style>
-    body {
-      margin: 0;
-      background: #000;
-      overflow: hidden;
-    }
-    canvas {
-      display: block;
-      margin: auto;
-      background: linear-gradient(#000, #111);
+    body { margin: 0; overflow: hidden; background: #000; }
+    canvas { display: block; }
+    #joystick-container {
+      position: absolute;
+      bottom: 30px;
+      left: 30px;
+      width: 100px;
+      height: 100px;
     }
   </style>
 </head>
 <body>
-<canvas id="game" width="360" height="600"></canvas>
-<script>
-const canvas = document.getElementById("game");
-const ctx = canvas.getContext("2d");
+  <div id="joystick-container"></div>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r148/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/nipplejs@0.9.0/dist/nipplejs.min.js"></script>
+  <script>
+    // Cena, câmera e renderizador
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+    const renderer = new THREE.WebGLRenderer({antialias: true});
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
 
-let player = { x: 160, y: 520, w: 40, h: 40, speed: 5 };
-let obstacles = [];
-let score = 0;
-let gameOver = false;
-let moveDir = null;
+    // Luz
+    const light = new THREE.DirectionalLight(0xffffff, 1);
+    light.position.set(0, 20, 10);
+    scene.add(light);
 
-function drawPlayer() {
-  ctx.fillStyle = "#0ff";
-  ctx.shadowBlur = 20;
-  ctx.shadowColor = "#0ff";
-  ctx.fillRect(player.x, player.y, player.w, player.h);
-  ctx.shadowBlur = 0;
-}
+    // Chão
+    const floorGeometry = new THREE.PlaneGeometry(200, 200);
+    const floorMaterial = new THREE.MeshStandardMaterial({color: 0x222222});
+    const floor = new THREE.Mesh(floorGeometry, floorMaterial);
+    floor.rotation.x = -Math.PI / 2;
+    scene.add(floor);
 
-function spawnObstacle() {
-  const width = 60 + Math.random() * 100;
-  const x = Math.random() * (canvas.width - width);
-  obstacles.push({ x, y: -40, w: width, h: 20, speed: 3 + Math.random() * 2 });
-}
+    // Jogador
+    const playerGeometry = new THREE.BoxGeometry(1, 1, 1);
+    const playerMaterial = new THREE.MeshStandardMaterial({color: 0x00ff00});
+    const player = new THREE.Mesh(playerGeometry, playerMaterial);
+    player.position.y = 0.5;
+    scene.add(player);
 
-function drawObstacles() {
-  ctx.fillStyle = "#f0f";
-  ctx.shadowBlur = 10;
-  ctx.shadowColor = "#f0f";
-  for (let obs of obstacles) {
-    ctx.fillRect(obs.x, obs.y, obs.w, obs.h);
-    obs.y += obs.speed;
-  }
-  ctx.shadowBlur = 0;
-}
-
-function checkCollisions() {
-  for (let obs of obstacles) {
-    if (
-      player.x < obs.x + obs.w &&
-      player.x + player.w > obs.x &&
-      player.y < obs.y + obs.h &&
-      player.y + player.h > obs.y
-    ) {
-      gameOver = true;
+    // Obstáculos
+    const obstacles = [];
+    function spawnObstacle() {
+      const geo = new THREE.BoxGeometry(1, 1, 1);
+      const mat = new THREE.MeshStandardMaterial({color: 0xff0000});
+      const obs = new THREE.Mesh(geo, mat);
+      obs.position.set(Math.random() * 6 - 3, 0.5, player.position.z - 30);
+      scene.add(obs);
+      obstacles.push(obs);
     }
-  }
-}
+    setInterval(spawnObstacle, 1500);
 
-function drawScore() {
-  ctx.fillStyle = "#fff";
-  ctx.font = "16px Arial";
-  ctx.fillText("Pontos: " + score, 10, 20);
-}
+    // Câmera
+    camera.position.z = 5;
+    camera.position.y = 2;
+    camera.lookAt(0, 0, 0);
 
-function update() {
-  if (moveDir === "left") player.x -= player.speed;
-  if (moveDir === "right") player.x += player.speed;
+    // Joystick
+    let moveX = 0;
+    const joystick = nipplejs.create({
+      zone: document.getElementById('joystick-container'),
+      mode: 'static',
+      position: {left: '50px', bottom: '50px'},
+      color: 'white'
+    });
 
-  player.x = Math.max(0, Math.min(canvas.width - player.w, player.x));
+    joystick.on('move', (evt, data) => {
+      if (data && data.vector) {
+        moveX = data.vector.x;
+      }
+    });
 
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  drawPlayer();
-  drawObstacles();
-  checkCollisions();
-  drawScore();
+    joystick.on('end', () => {
+      moveX = 0;
+    });
 
-  if (!gameOver) {
-    requestAnimationFrame(update);
-    score++;
-  } else {
-    ctx.fillStyle = "#fff";
-    ctx.font = "24px Arial";
-    ctx.fillText("Game Over", 120, 300);
-    ctx.fillText("Toque para recomeçar", 80, 340);
-  }
-}
+    // Loop do jogo
+    function animate() {
+      requestAnimationFrame(animate);
 
-setInterval(spawnObstacle, 1000);
-update();
+      // Movimento do jogador
+      player.position.x += moveX * 0.2;
+      player.position.x = Math.max(-3, Math.min(3, player.position.x));
+      player.position.z -= 0.1; // correr
 
-canvas.addEventListener("touchstart", e => {
-  const touchX = e.touches[0].clientX;
-  moveDir = touchX < canvas.width / 2 ? "left" : "right";
+      // Mover obstáculos
+      for (let obs of obstacles) {
+        obs.position.z += 0.1;
+        if (obs.position.z > camera.position.z) {
+          scene.remove(obs);
+        }
 
-  if (gameOver) {
-    // Resetar jogo
-    player.x = 160;
-    obstacles = [];
-    score = 0;
-    gameOver = false;
-    update();
-  }
-});
+        // Colisão simples
+        if (
+          Math.abs(obs.position.x - player.position.x) < 1 &&
+          Math.abs(obs.position.z - player.position.z) < 1
+        ) {
+          alert("Você bateu!");
+          window.location.reload();
+        }
+      }
 
-canvas.addEventListener("touchend", () => {
-  moveDir = null;
-});
-</script>
+      camera.position.z = player.position.z + 5;
+      renderer.render(scene, camera);
+    }
+
+    animate();
+  </script>
 </body>
 </html>
