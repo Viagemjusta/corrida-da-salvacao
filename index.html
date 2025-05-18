@@ -3,12 +3,23 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Jogo 3D básico com joystick</title>
+<title>Jogo 3D com tiro e joystick</title>
 <style>
   body, html {
     margin: 0; padding: 0; overflow: hidden;
     background: #000;
     touch-action: none;
+    user-select: none;
+    font-family: Arial, sans-serif;
+    color: white;
+  }
+  #score {
+    position: fixed;
+    top: 10px;
+    left: 10px;
+    font-size: 24px;
+    font-weight: bold;
+    z-index: 10;
   }
   #joystick {
     position: fixed;
@@ -19,6 +30,7 @@
     background: rgba(255,255,255,0.15);
     border-radius: 50%;
     touch-action: none;
+    z-index: 10;
   }
   #knob {
     position: absolute;
@@ -32,6 +44,7 @@
 </head>
 <body>
 
+<div id="score">Pontos: 0</div>
 <div id="joystick">
   <div id="knob"></div>
 </div>
@@ -39,49 +52,62 @@
 <script src="https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.min.js"></script>
 
 <script>
-  // Setup básico Three.js
+  // --- Setup básico Three.js ---
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
   const renderer = new THREE.WebGLRenderer({antialias: true});
   renderer.setSize(window.innerWidth, window.innerHeight);
   document.body.appendChild(renderer.domElement);
 
-  // Luz básica
-  const light = new THREE.DirectionalLight(0xffffff, 1);
-  light.position.set(5, 10, 7);
-  scene.add(light);
+  // Luzes
+  const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+  scene.add(ambientLight);
+  const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+  directionalLight.position.set(5,10,7);
+  scene.add(directionalLight);
 
-  // Cubo personagem
-  const geometry = new THREE.BoxGeometry(1,1,1);
-  const material = new THREE.MeshStandardMaterial({color: 0x00ff00});
-  const player = new THREE.Mesh(geometry, material);
+  // --- Personagem (cubo verde estilizado) ---
+  const playerGeometry = new THREE.BoxGeometry(1,1,1);
+  const playerMaterial = new THREE.MeshStandardMaterial({color: 0x00ff00, roughness: 0.5, metalness: 0.7});
+  const player = new THREE.Mesh(playerGeometry, playerMaterial);
   scene.add(player);
 
-  player.position.z = 0;
-  player.position.y = 0;
-  player.position.x = 0;
+  player.position.set(0, 0, 0);
 
-  camera.position.z = 5;
-  camera.position.y = 2;
+  camera.position.set(0, 4, 8);
   camera.lookAt(player.position);
 
-  // Obstáculos (esferas vermelhas)
-  const obstacles = [];
-  const obstacleGeometry = new THREE.SphereGeometry(0.3, 16, 16);
-  const obstacleMaterial = new THREE.MeshStandardMaterial({color: 0xff0000});
+  // --- Projetil ---
+  const projectileGeometry = new THREE.SphereGeometry(0.15, 8, 8);
+  const projectileMaterial = new THREE.MeshStandardMaterial({color: 0xffff00});
+  let projectiles = [];
 
-  function spawnObstacle() {
-    const obs = new THREE.Mesh(obstacleGeometry, obstacleMaterial);
-    obs.position.x = (Math.random() - 0.5) * 10;
-    obs.position.y = 0;
-    obs.position.z = -20;
-    scene.add(obs);
-    obstacles.push(obs);
+  // --- Obstáculos variados ---
+  const obstacleTypes = [
+    {geometry: new THREE.SphereGeometry(0.3, 12, 12), color: 0xff0000},  // esfera vermelha
+    {geometry: new THREE.ConeGeometry(0.3, 0.7, 8), color: 0x5555ff},    // cone azul
+    {geometry: new THREE.TetrahedronGeometry(0.35), color: 0xff55ff},     // tetra roxo
+  ];
+
+  let obstacles = [];
+  let obstacleSpeed = 0.1;
+
+  function spawnObstacle(){
+    const type = obstacleTypes[Math.floor(Math.random()*obstacleTypes.length)];
+    const mat = new THREE.MeshStandardMaterial({color: type.color});
+    const mesh = new THREE.Mesh(type.geometry, mat);
+
+    mesh.position.x = (Math.random() - 0.5) * 8;
+    mesh.position.z = -25;
+    mesh.position.y = 0;
+
+    scene.add(mesh);
+    obstacles.push(mesh);
   }
 
-  setInterval(spawnObstacle, 1500);
+  setInterval(spawnObstacle, 1200);
 
-  // Joystick
+  // --- Joystick ---
   const joystick = document.getElementById('joystick');
   const knob = document.getElementById('knob');
   let dragging = false;
@@ -101,7 +127,6 @@
     deltaX = touch.clientX - startX;
     deltaY = touch.clientY - startY;
 
-    // Limita o knob ao círculo do joystick
     const maxDist = joystick.clientWidth/2 - knob.clientWidth/2;
     let dist = Math.sqrt(deltaX*deltaX + deltaY*deltaY);
     if(dist > maxDist){
@@ -121,58 +146,99 @@
     knob.style.transform = `translate(0px, 0px)`;
   });
 
-  // Velocidade do player
-  const speed = 0.05;
+  // --- Movimento ---
+  const playerSpeed = 0.12;
+  const scoreDiv = document.getElementById('score');
+  let score = 0;
 
-  // Loop do jogo
+  // --- Controle de disparo ---
+  window.addEventListener('touchstart', e => {
+    // Dispara tiro
+    const projectile = new THREE.Mesh(projectileGeometry, projectileMaterial);
+    projectile.position.copy(player.position);
+    projectile.position.y = 0.5;
+    scene.add(projectile);
+    projectiles.push(projectile);
+  });
+
+  // --- Loop do jogo ---
   function animate(){
     requestAnimationFrame(animate);
 
-    // Move player baseado no joystick (normaliza movimento para ficar proporcional)
+    // Move player
     const maxDist = joystick.clientWidth/2 - knob.clientWidth/2;
-    const moveX = (deltaX / maxDist) * speed;
-    const moveZ = (deltaY / maxDist) * speed;
+    const moveX = (deltaX / maxDist) * playerSpeed;
+    const moveZ = (deltaY / maxDist) * playerSpeed;
 
     player.position.x += moveX;
     player.position.z += moveZ;
 
-    // Limites para o jogador (para não sair da tela)
+    // Limites para player
     if(player.position.x > 4) player.position.x = 4;
     if(player.position.x < -4) player.position.x = -4;
-    if(player.position.z > 2) player.position.z = 2;
+    if(player.position.z > 3) player.position.z = 3;
     if(player.position.z < -10) player.position.z = -10;
 
-    // Move obstáculos para frente
-    for(let i = obstacles.length-1; i>=0; i--){
-      obstacles[i].position.z += 0.1;
+    // Move obstáculos
+    obstacles.forEach((obs, i) => {
+      obs.position.z += obstacleSpeed;
+
       // Remove obstáculo se passar do player
-      if(obstacles[i].position.z > 5){
-        scene.remove(obstacles[i]);
-        obstacles.splice(i,1);
-      } else {
-        // Checa colisão simples (distância)
-        const dx = obstacles[i].position.x - player.position.x;
-        const dz = obstacles[i].position.z - player.position.z;
-        const dist = Math.sqrt(dx*dx + dz*dz);
-        if(dist < 0.8){
-          alert("Você bateu! Jogo terminado.");
-          window.location.reload();
-          return;
-        }
+      if(obs.position.z > 8){
+        scene.remove(obs);
+        obstacles.splice(i, 1);
       }
+
+      // Colisão com player
+      const dx = obs.position.x - player.position.x;
+      const dz = obs.position.z - player.position.z;
+      const dist = Math.sqrt(dx*dx + dz*dz);
+      if(dist < 0.8){
+        alert("Você bateu! Pontuação final: " + score);
+        window.location.reload();
+      }
+    });
+
+    // Move e checa projéteis
+    projectiles.forEach((proj, i) => {
+      proj.position.z -= 0.3;
+
+      // Remove se sair da tela
+      if(proj.position.z < -30){
+        scene.remove(proj);
+        projectiles.splice(i,1);
+      }
+
+      // Colisão projétil x obstáculos
+      obstacles.forEach((obs, j) => {
+        const dx = obs.position.x - proj.position.x;
+        const dz = obs.position.z - proj.position.z;
+        const dist = Math.sqrt(dx*dx + dz*dz);
+
+        if(dist < 0.7){
+          // Remove obstáculo e tiro
+          scene.remove(obs);
+          obstacles.splice(j, 1);
+
+          scene.remove(proj);
+          projectiles.splice(i, 1);
+
+          score++;
+          scoreDiv.textContent = "Pontos: " + score;
+        }
+      });
+    });
+
+    // Aumenta dificuldade gradativamente
+    if(score > 0 && score % 10 === 0){
+      obstacleSpeed = 0.1 + (score / 100);
     }
 
     renderer.render(scene, camera);
   }
-
-  animate();
-
-  window.addEventListener('resize', () => {
-    camera.aspect = window.innerWidth/window.innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
-  });
-</script>
-
-</body>
-</html>
+  // Ajusta o tamanho da tela quando muda o tamanho da janela
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth/window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
