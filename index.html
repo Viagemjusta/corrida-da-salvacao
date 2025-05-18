@@ -1,149 +1,144 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-br">
 <head>
-  <meta charset="UTF-8">
-  <title>Matemática de Jesus</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Calculadora da Matemática de Jesus</title>
   <style>
     body {
-      margin: 0;
-      font-family: 'Segoe UI', sans-serif;
-      background: linear-gradient(to bottom, #000, #1a1a1a);
-      color: white;
+      background: linear-gradient(to top, #000000, #1e1e2f);
+      color: #fff;
+      font-family: 'Arial', sans-serif;
       display: flex;
       justify-content: center;
       align-items: center;
       height: 100vh;
-      flex-direction: column;
+      margin: 0;
     }
-
-    .calc-container {
-      background: #292929;
+    .calculator {
+      background: #2e2e40;
       padding: 20px;
       border-radius: 15px;
-      box-shadow: 0 0 20px rgba(255,255,255,0.1);
+      box-shadow: 0 0 30px #ffdd57;
       width: 320px;
       text-align: center;
     }
-
-    .title {
-      font-size: 22px;
-      margin-bottom: 10px;
-      color: #ffd700;
-    }
-
     .display {
-      background: #111;
+      background: #000;
       color: #0f0;
-      padding: 15px;
-      font-size: 24px;
+      font-size: 1.6rem;
+      padding: 10px;
       border-radius: 10px;
       margin-bottom: 15px;
-      text-align: right;
-      overflow-x: auto;
+      min-height: 40px;
     }
-
     .buttons {
       display: grid;
       grid-template-columns: repeat(4, 1fr);
       gap: 10px;
     }
-
     button {
-      background: #333;
-      color: white;
-      border: none;
       padding: 15px;
-      font-size: 18px;
+      font-size: 1.2rem;
+      border: none;
       border-radius: 8px;
+      background: #444;
+      color: #fff;
       transition: 0.2s;
     }
-
     button:hover {
-      background: #555;
+      background: #666;
     }
-
-    .spiritual-message {
-      margin-top: 20px;
-      font-size: 14px;
+    .faith-mode {
+      margin-top: 15px;
+      background: #ffdd57;
+      color: #000;
+      font-weight: bold;
+      border-radius: 8px;
+      padding: 10px;
+    }
+    .message {
+      margin-top: 10px;
       font-style: italic;
-      color: #ccc;
-      height: 30px;
+      color: #ffdd57;
+      min-height: 20px;
     }
   </style>
 </head>
 <body>
-
-  <div class="calc-container">
-    <div class="title">Matemática de Jesus</div>
+  <div class="calculator">
     <div class="display" id="display">0</div>
     <div class="buttons">
-      <button onclick="press('7')">7</button>
-      <button onclick="press('8')">8</button>
-      <button onclick="press('9')">9</button>
-      <button onclick="press('/')">÷</button>
-
-      <button onclick="press('4')">4</button>
-      <button onclick="press('5')">5</button>
-      <button onclick="press('6')">6</button>
-      <button onclick="press('*')">×</button>
-
-      <button onclick="press('1')">1</button>
-      <button onclick="press('2')">2</button>
-      <button onclick="press('3')">3</button>
-      <button onclick="press('-')">−</button>
-
-      <button onclick="press('0')">0</button>
-      <button onclick="press('.')">.</button>
+      <button onclick="add('7')">7</button>
+      <button onclick="add('8')">8</button>
+      <button onclick="add('9')">9</button>
+      <button onclick="add('/')">÷</button>
+      <button onclick="add('4')">4</button>
+      <button onclick="add('5')">5</button>
+      <button onclick="add('6')">6</button>
+      <button onclick="add('*')">×</button>
+      <button onclick="add('1')">1</button>
+      <button onclick="add('2')">2</button>
+      <button onclick="add('3')">3</button>
+      <button onclick="add('-')">-</button>
+      <button onclick="add('0')">0</button>
+      <button onclick="add('.')">.</button>
       <button onclick="calculate()">=</button>
-      <button onclick="press('+')">+</button>
-
-      <button onclick="clearDisplay()" style="grid-column: span 4; background: #800000;">C</button>
+      <button onclick="add('+')">+</button>
+      <button onclick="clearDisplay()" style="grid-column: span 2;">C</button>
+      <button onclick="toggleFaithMode()" class="faith-mode" style="grid-column: span 2;">Modo Fé</button>
     </div>
-    <div class="spiritual-message" id="message">"Com Jesus, o resultado é sempre amor."</div>
+    <div class="message" id="message"></div>
   </div>
 
   <script>
-    let input = '';
-    const display = document.getElementById('display');
-    const message = document.getElementById('message');
+    let display = document.getElementById('display');
+    let message = document.getElementById('message');
+    let faithMode = false;
+    let expression = '';
 
-    function press(value) {
-      if (display.innerText === '0') display.innerText = '';
-      input += value;
-      display.innerText = input;
+    const messagesDeFe = [
+      "Com Jesus, até o impossível se resolve!",
+      "A fé move montanhas... e cálculos também!",
+      "Tudo é possível ao que crê. (Marcos 9:23)",
+      "Entrega teu caminho ao Senhor... até na matemática!",
+      "Deus é Deus de ordem e exatidão!",
+      "A resposta certa vem do céu!"
+    ];
+
+    function add(value) {
+      if (display.textContent === '0') {
+        display.textContent = '';
+      }
+      expression += value;
+      display.textContent = expression;
+      message.textContent = '';
     }
 
     function clearDisplay() {
-      input = '';
-      display.innerText = '0';
-      message.innerText = '"Jesus renova tudo."';
+      expression = '';
+      display.textContent = '0';
+      message.textContent = '';
     }
 
     function calculate() {
       try {
-        const result = eval(input);
-        display.innerText = result;
-        showSpiritualMessage(result);
-        input = result.toString();
-      } catch (e) {
-        display.innerText = 'Erro';
-        message.innerText = '"Confie em Jesus mesmo nos erros."';
-        input = '';
+        let result = eval(expression);
+        display.textContent = result;
+        expression = result.toString();
+        if (faithMode) {
+          message.textContent = messagesDeFe[Math.floor(Math.random() * messagesDeFe.length)];
+        }
+      } catch {
+        display.textContent = 'Erro';
+        message.textContent = 'Confia no Senhor... revise o cálculo!';
       }
     }
 
-    function showSpiritualMessage(result) {
-      let msg = '';
-      if (result == 3) msg = '"Trindade: Pai, Filho e Espírito Santo."';
-      else if (result == 7) msg = '"Perfeição de Deus."';
-      else if (result == 12) msg = '"Doze apóstolos, doze tribos."';
-      else if (result == 40) msg = '"40 dias de jejum de Jesus."';
-      else if (result == 70) msg = '"70 vezes 7: perdão infinito."';
-      else msg = '"Com fé, até a matemática glorifica Jesus!"';
-
-      message.innerText = msg;
+    function toggleFaithMode() {
+      faithMode = !faithMode;
+      message.textContent = faithMode ? "Modo Fé ativado! Jesus está resolvendo com você." : "Modo Fé desativado.";
     }
   </script>
-
 </body>
 </html>
