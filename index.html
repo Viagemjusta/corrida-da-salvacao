@@ -2,486 +2,177 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-<title>Corrida da Salvação - Versão Melhorada</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Jogo 3D básico com joystick</title>
 <style>
-  * {
-    box-sizing: border-box;
-  }
   body, html {
     margin: 0; padding: 0; overflow: hidden;
-    background: black;
+    background: #000;
     touch-action: none;
-    -webkit-tap-highlight-color: transparent;
-    user-select: none;
-  }
-  #gameCanvas {
-    display: block;
-    background: black;
-    width: 100vw;
-    height: 100vh;
   }
   #joystick {
     position: fixed;
-    left: 20px;
-    bottom: 20px;
+    bottom: 30px;
+    left: 30px;
     width: 120px;
     height: 120px;
-    background: rgba(255,255,255,0.1);
+    background: rgba(255,255,255,0.15);
     border-radius: 50%;
     touch-action: none;
-    z-index: 10;
   }
-  #stick {
-    width: 60px;
-    height: 60px;
-    background: red;
-    border-radius: 50%;
+  #knob {
     position: absolute;
-    top: 30px;
-    left: 30px;
+    left: 40px; top: 40px;
+    width: 40px; height: 40px;
+    background: rgba(255,255,255,0.5);
+    border-radius: 50%;
     touch-action: none;
-  }
-  #overlay {
-    position: fixed;
-    top:0; left:0;
-    width: 100vw; height: 100vh;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    color: white;
-    font-size: 2em;
-    background: rgba(0,0,0,0.7);
-    z-index: 20;
-    user-select: none;
-    display: none;
-    flex-direction: column;
-  }
-  #overlay button {
-    margin-top: 20px;
-    font-size: 1.2em;
-    padding: 10px 25px;
-    border: none;
-    border-radius: 8px;
-    background: red;
-    color: white;
   }
 </style>
 </head>
 <body>
 
-<canvas id="gameCanvas"></canvas>
-<div id="joystick"><div id="stick"></div></div>
-<div id="overlay">
-  <div>Você morreu!</div>
-  <button id="restartBtn">Reiniciar</button>
+<div id="joystick">
+  <div id="knob"></div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.min.js"></script>
+
 <script>
-  const canvas = document.getElementById("gameCanvas");
-  const ctx = canvas.getContext("2d");
+  // Setup básico Three.js
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+  const renderer = new THREE.WebGLRenderer({antialias: true});
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  document.body.appendChild(renderer.domElement);
 
-  let w, h;
-  function resize() {
-    w = window.innerWidth;
-    h = window.innerHeight;
-    canvas.width = w * devicePixelRatio;
-    canvas.height = h * devicePixelRatio;
-    canvas.style.width = w + 'px';
-    canvas.style.height = h + 'px';
-    ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+  // Luz básica
+  const light = new THREE.DirectionalLight(0xffffff, 1);
+  light.position.set(5, 10, 7);
+  scene.add(light);
+
+  // Cubo personagem
+  const geometry = new THREE.BoxGeometry(1,1,1);
+  const material = new THREE.MeshStandardMaterial({color: 0x00ff00});
+  const player = new THREE.Mesh(geometry, material);
+  scene.add(player);
+
+  player.position.z = 0;
+  player.position.y = 0;
+  player.position.x = 0;
+
+  camera.position.z = 5;
+  camera.position.y = 2;
+  camera.lookAt(player.position);
+
+  // Obstáculos (esferas vermelhas)
+  const obstacles = [];
+  const obstacleGeometry = new THREE.SphereGeometry(0.3, 16, 16);
+  const obstacleMaterial = new THREE.MeshStandardMaterial({color: 0xff0000});
+
+  function spawnObstacle() {
+    const obs = new THREE.Mesh(obstacleGeometry, obstacleMaterial);
+    obs.position.x = (Math.random() - 0.5) * 10;
+    obs.position.y = 0;
+    obs.position.z = -20;
+    scene.add(obs);
+    obstacles.push(obs);
   }
-  resize();
-  window.addEventListener('resize', resize);
 
-  const player = {
-    x: w / 2,
-    y: h / 2,
-    size: 50,
-    color: "red",
-    speed: 5
-  };
+  setInterval(spawnObstacle, 1500);
 
-  const bullets = [];
-  const enemies = [];
+  // Joystick
+  const joystick = document.getElementById('joystick');
+  const knob = document.getElementById('knob');
+  let dragging = false;
+  let startX = 0, startY = 0;
+  let deltaX = 0, deltaY = 0;
 
-  let joystick = {
-    active: false,
-    dx: 0,
-    dy: 0
-  };
-
-  const joystickBase = document.getElementById("joystick");
-  const joystickStick = document.getElementById("stick");
-
-  joystickBase.addEventListener("touchstart", (e) => {
-    joystick.active = true;
-    e.preventDefault();
-  }, {passive:false});
-
-  joystickBase.addEventListener("touchmove", (e) => {
-    e.preventDefault();
-    const rect = joystickBase.getBoundingClientRect();
+  joystick.addEventListener('touchstart', e => {
+    dragging = true;
     const touch = e.touches[0];
-    let x = touch.clientX - rect.left - rect.width / 2;
-    let y = touch.clientY - rect.top - rect.height / 2;
-
-    const maxDistance = rect.width / 2;
-    const distance = Math.min(Math.sqrt(x*x + y*y), maxDistance);
-    const angle = Math.atan2(y, x);
-
-    joystick.dx = Math.cos(angle) * (distance / maxDistance);
-    joystick.dy = Math.sin(angle) * (distance / maxDistance);
-
-    joystickStick.style.left = `${rect.width/2 + joystick.dx * maxDistance - joystickStick.offsetWidth/2}px`;
-    joystickStick.style.top = `${rect.height/2 + joystick.dy * maxDistance - joystickStick.offsetHeight/2}px`;
+    startX = touch.clientX;
+    startY = touch.clientY;
   }, {passive:false});
 
-  joystickBase.addEventListener("touchend", (e) => {
-    e.preventDefault();
-    joystick.active = false;
-    joystick.dx = 0;
-    joystick.dy = 0;
-    joystickStick.style.left = '30px';
-    joystickStick.style.top = '30px';
-  }, {passive:false});
-
-  // Atirar ao tocar fora do joystick
-  canvas.addEventListener("touchstart", (e) => {
+  joystick.addEventListener('touchmove', e => {
+    if(!dragging) return;
     const touch = e.touches[0];
-    const rect = joystickBase.getBoundingClientRect();
-    if (
-      touch.clientX < rect.left || touch.clientX > rect.right ||
-      touch.clientY < rect.top || touch.clientY > rect.bottom
-    ) {
-      shoot();
+    deltaX = touch.clientX - startX;
+    deltaY = touch.clientY - startY;
+
+    // Limita o knob ao círculo do joystick
+    const maxDist = joystick.clientWidth/2 - knob.clientWidth/2;
+    let dist = Math.sqrt(deltaX*deltaX + deltaY*deltaY);
+    if(dist > maxDist){
+      deltaX = deltaX * maxDist / dist;
+      deltaY = deltaY * maxDist / dist;
     }
+
+    knob.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
+
+    e.preventDefault();
   }, {passive:false});
 
-  function shoot() {
-    bullets.push({
-      x: player.x + player.size/2 - 5,
-      y: player.y + player.size/2 - 5,
-      size: 10,
-      speed: 10,
-      color: "white"
-    });
-  }
+  joystick.addEventListener('touchend', e => {
+    dragging = false;
+    deltaX = 0;
+    deltaY = 0;
+    knob.style.transform = `translate(0px, 0px)`;
+  });
 
-  // Enemies saem de todos os lados
-  function spawnEnemy() {
-    const size = 30 + Math.random() * 30;
-    const side = Math.floor(Math.random() * 4); // 0 = topo, 1 = direita, 2 = baixo, 3 = esquerda
-    let x, y, speedX = 0, speedY = 0;
-    const speed = 2 + Math.random() * 2;
+  // Velocidade do player
+  const speed = 0.05;
 
-    switch(side) {
-      case 0: // topo, vai pra baixo
-        x = Math.random() * (w - size);
-        y = -size;
-        speedY = speed;
-        break;
-      case 1: // direita, vai pra esquerda
-        x = w + size;
-        y = Math.random() * (h - size);
-        speedX = -speed;
-        break;
-      case 2: // baixo, vai pra cima
-        x = Math.random() * (w - size);
-        y = h + size;
-        speedY = -speed;
-        break;
-      case 3: // esquerda, vai pra direita
-        x = -size;
-        y = Math.random() * (h - size);
-        speedX = speed;
-        break;
-    }
+  // Loop do jogo
+  function animate(){
+    requestAnimationFrame(animate);
 
-    enemies.push({
-      x, y, size,
-      speedX, speedY,
-      color: "purple"
-    });
-  }
+    // Move player baseado no joystick (normaliza movimento para ficar proporcional)
+    const maxDist = joystick.clientWidth/2 - knob.clientWidth/2;
+    const moveX = (deltaX / maxDist) * speed;
+    const moveZ = (deltaY / maxDist) * speed;
 
-  let spawnInterval = setInterval(spawnEnemy, 900);
+    player.position.x += moveX;
+    player.position.z += moveZ;
 
-  const overlay = document.getElementById('overlay');
-  const restartBtn = document.getElementById('restartBtn');
+    // Limites para o jogador (para não sair da tela)
+    if(player.position.x > 4) player.position.x = 4;
+    if(player.position.x < -4) player.position.x = -4;
+    if(player.position.z > 2) player.position.z = 2;
+    if(player.position.z < -10) player.position.z = -10;
 
-  let gameOver = false;
-
-  function resetGame() {
-    player.x = w/2;
-    player.y = h/2;
-    bullets.length = 0;
-    enemies.length = 0;
-    gameOver = false;
-    overlay.style.display = 'none';
-    clearInterval(spawnInterval);
-    spawnInterval = setInterval(spawnEnemy, 900);
-    gameLoop();
-  }
-
-  restartBtn.addEventListener('click', <script>
-  // Variáveis do jogo
-  const player = {
-    x: 100,
-    y: 100,
-    size: 40,
-    color: "red",
-    speed: 4,
-    alive: true
-  };
-
-  const bullets = [];
-  const enemies = [];
-  let enemySpawnInterval;
-  let animationId;
-  let canvas, ctx;
-  let joystick = { active: false, startX: 0, startY: 0, x: 0, y: 0, radius: 40, knobRadius: 20 };
-  let score = 0;
-
-  function setup() {
-    canvas = document.getElementById("gameCanvas");
-    ctx = canvas.getContext("2d");
-    resizeCanvas();
-
-    // Spawna inimigos a cada 1.5 segundos
-    enemySpawnInterval = setInterval(spawnEnemy, 1500);
-
-    // Eventos toque para joystick
-    canvas.addEventListener("touchstart", touchStartHandler, false);
-    canvas.addEventListener("touchmove", touchMoveHandler, false);
-    canvas.addEventListener("touchend", touchEndHandler, false);
-
-    // Atirar ao tocar com outro dedo (não joystick)
-    canvas.addEventListener("touchstart", shootHandler, false);
-
-    // Iniciar animação
-    animationId = requestAnimationFrame(gameLoop);
-  }
-
-  function resizeCanvas() {
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-  }
-
-  function spawnEnemy() {
-    if (!player.alive) return;
-    // Inimigos aparecem em bordas aleatórias e seguem para o player
-    const size = 30;
-    const speed = 1 + Math.random() * 1.5;
-    let x, y;
-
-    const edge = Math.floor(Math.random() * 4);
-    if (edge === 0) { // topo
-      x = Math.random() * canvas.width;
-      y = -size;
-    } else if (edge === 1) { // direita
-      x = canvas.width + size;
-      y = Math.random() * canvas.height;
-    } else if (edge === 2) { // baixo
-      x = Math.random() * canvas.width;
-      y = canvas.height + size;
-    } else { // esquerda
-      x = -size;
-      y = Math.random() * canvas.height;
-    }
-
-    enemies.push({ x, y, size, speed, color: "gray" });
-  }
-
-  function shootHandler(e) {
-    e.preventDefault();
-    if (!player.alive) {
-      restartGame();
-      return;
-    }
-    // Não dispara se o toque foi para o joystick
-    for (let touch of e.touches) {
-      if (isInsideJoystick(touch)) return;
-    }
-    // Cria bala do player
-    bullets.push({
-      x: player.x + player.size / 2,
-      y: player.y + player.size / 2,
-      size: 8,
-      speed: 7,
-      color: "yellow"
-    });
-  }
-
-  function isInsideJoystick(touch) {
-    const rect = canvas.getBoundingClientRect();
-    const tx = touch.clientX - rect.left;
-    const ty = touch.clientY - rect.top;
-    const dx = tx - joystick.startX;
-    const dy = ty - joystick.startY;
-    return joystick.active && Math.sqrt(dx * dx + dy * dy) <= joystick.radius * 2;
-  }
-
-  function touchStartHandler(e) {
-    e.preventDefault();
-    for (let touch of e.touches) {
-      const rect = canvas.getBoundingClientRect();
-      const tx = touch.clientX - rect.left;
-      const ty = touch.clientY - rect.top;
-      // Se ainda não ativou joystick e o toque foi na metade esquerda da tela, ativa joystick
-      if (!joystick.active && tx < canvas.width / 2) {
-        joystick.active = true;
-        joystick.startX = tx;
-        joystick.startY = ty;
-        joystick.x = tx;
-        joystick.y = ty;
-      }
-    }
-  }
-
-  function touchMoveHandler(e) {
-    e.preventDefault();
-    if (!joystick.active) return;
-    const rect = canvas.getBoundingClientRect();
-    const touch = e.touches[0];
-    let tx = touch.clientX - rect.left;
-    let ty = touch.clientY - rect.top;
-
-    // Limita o movimento do knob do joystick dentro do raio
-    const dx = tx - joystick.startX;
-    const dy = ty - joystick.startY;
-    const dist = Math.sqrt(dx * dx + dy * dy);
-    if (dist > joystick.radius) {
-      const angle = Math.atan2(dy, dx);
-      tx = joystick.startX + joystick.radius * Math.cos(angle);
-      ty = joystick.startY + joystick.radius * Math.sin(angle);
-    }
-    joystick.x = tx;
-    joystick.y = ty;
-
-    // Move o player de acordo com o joystick
-    const moveX = (joystick.x - joystick.startX) / joystick.radius * player.speed;
-    const moveY = (joystick.y - joystick.startY) / joystick.radius * player.speed;
-    player.x += moveX;
-    player.y += moveY;
-
-    // Limitar dentro da tela
-    if (player.x < 0) player.x = 0;
-    if (player.y < 0) player.y = 0;
-    if (player.x > canvas.width - player.size) player.x = canvas.width - player.size;
-    if (player.y > canvas.height - player.size) player.y = canvas.height - player.size;
-  }
-
-  function touchEndHandler(e) {
-    e.preventDefault();
-    joystick.active = false;
-  }
-
-  function gameLoop() {
-    if (!ctx) return;
-
-    // Fundo preto
-    ctx.fillStyle = "black";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    if (player.alive) {
-      // Desenha jogador
-      ctx.fillStyle = player.color;
-      ctx.fillRect(player.x, player.y, player.size, player.size);
-    }
-
-    // Desenha joystick
-    if (joystick.active) {
-      ctx.globalAlpha = 0.4;
-      ctx.beginPath();
-      ctx.arc(joystick.startX, joystick.startY, joystick.radius, 0, Math.PI * 2);
-      ctx.fillStyle = "gray";
-      ctx.fill();
-
-      ctx.beginPath();
-      ctx.arc(joystick.x, joystick.y, joystick.knobRadius, 0, Math.PI * 2);
-      ctx.fillStyle = "white";
-      ctx.fill();
-      ctx.globalAlpha = 1;
-    }
-
-    // Atualiza e desenha balas
-    for (let i = bullets.length - 1; i >= 0; i--) {
-      const b = bullets[i];
-      b.y -= b.speed;
-      ctx.fillStyle = b.color;
-      ctx.beginPath();
-      ctx.arc(b.x, b.y, b.size, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Remove bala fora da tela
-      if (b.y < 0) {
-        bullets.splice(i, 1);
-      }
-    }
-
-    // Atualiza inimigos e verifica colisão
-    for (let i = enemies.length - 1; i >= 0; i--) {
-      const enemy = enemies[i];
-
-      // Move inimigo em direção ao jogador
-      const dx = player.x + player.size / 2 - (enemy.x + enemy.size / 2);
-      const dy = player.y + player.size / 2 - (enemy.y + enemy.size / 2);
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      enemy.x += (dx / dist) * enemy.speed;
-      enemy.y += (dy / dist) * enemy.speed;
-
-      ctx.fillStyle = enemy.color;
-      ctx.fillRect(enemy.x, enemy.y, enemy.size, enemy.size);
-
-      // Verifica colisão com jogador
-      if (player.alive && rectsOverlap(player, enemy)) {
-        player.alive = false;
-        clearInterval(enemySpawnInterval);
-        setTimeout(() => alert("Você morreu! Toque a tela para reiniciar."), 100);
-      }
-
-      // Verifica colisão com balas
-      for (let j = bullets.length - 1; j >= 0; j--) {
-        if (rectsOverlap(enemies[i], bullets[j])) {
-          enemies.splice(i, 1);
-          bullets.splice(j, 1);
-          score++;
-          break;
+    // Move obstáculos para frente
+    for(let i = obstacles.length-1; i>=0; i--){
+      obstacles[i].position.z += 0.1;
+      // Remove obstáculo se passar do player
+      if(obstacles[i].position.z > 5){
+        scene.remove(obstacles[i]);
+        obstacles.splice(i,1);
+      } else {
+        // Checa colisão simples (distância)
+        const dx = obstacles[i].position.x - player.position.x;
+        const dz = obstacles[i].position.z - player.position.z;
+        const dist = Math.sqrt(dx*dx + dz*dz);
+        if(dist < 0.8){
+          alert("Você bateu! Jogo terminado.");
+          window.location.reload();
+          return;
         }
       }
     }
 
-    // Desenha pontuação
-    ctx.fillStyle = "white";
-    ctx.font = "20px Arial";
-    ctx.fillText("Score: " + score, 10, 30);
-
-    animationId = requestAnimationFrame(gameLoop);
+    renderer.render(scene, camera);
   }
 
-  function rectsOverlap(r1, r2) {
-    return !(r2.x > r1.x + r1.size || 
-             r2.x + r2.size < r1.x || 
-             r2.y > r1.y + r1.size ||
-             r2.y + r2.size < r1.y);
-  }
+  animate();
 
-  function restartGame() {
-    player.x = canvas.width / 2 - player.size / 2;
-    player.y = canvas.height / 2 - player.size / 2;
-    player.alive = true;
-    enemies.length = 0;
-    bullets.length = 0;
-    score = 0;
-    enemySpawnInterval = setInterval(spawnEnemy, 1500);
-  }
-
-  window.onload = setup;
-  window.onresize = () => {
-    resizeCanvas();
-    // Ajusta posição do player ao redimensionar
-    if (player.x > canvas.width - player.size) player.x = canvas.width - player.size;
-    if (player.y > canvas.height - player.size) player.y = canvas.height - player.size;
-  };
+  window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth/window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  });
 </script>
+
+</body>
+</html>
