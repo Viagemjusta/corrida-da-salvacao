@@ -1,0 +1,23 @@
+body {
+  background-color: #f0f0f0;
+  font-family: Arial, sans-serif;
+  text-align: center;
+  padding-top: 30px;
+}
+
+h1 {
+  color: #333;
+  margin-bottom: 20px;
+}
+
+canvas {
+  border: 2px solid #333;
+  background-color: #fff;
+}
+
+#mensagemBiblica {
+  margin-top: 20px;
+  font-size: 18px;
+  font-weight: bold;
+  color: #007700;
+}
