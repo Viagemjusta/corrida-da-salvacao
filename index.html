@@ -3,198 +3,207 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Calculadora da Matemática de Jesus</title>
+<title>Calculadora Matemática de Jesus</title>
 <style>
+  @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@500&display=swap');
+
   body {
-    margin: 0;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background: linear-gradient(135deg, #f0e6d2, #c9b99a);
-    color: #3e2f1c;
+    background: linear-gradient(135deg, #1a1a1a, #3d2c2c);
+    color: #f9d976;
+    font-family: 'Montserrat', sans-serif;
     display: flex;
-    justify-content: center;
+    flex-direction: column;
     align-items: center;
+    justify-content: flex-start;
     min-height: 100vh;
-    padding: 10px;
+    margin: 0;
+    padding: 30px 20px;
   }
-  .calculator {
-    background: #fff9f0dd;
-    box-shadow: 0 8px 20px rgba(0,0,0,0.15);
-    border-radius: 16px;
-    width: 320px;
+
+  h1 {
+    margin-bottom: 15px;
+    font-weight: 700;
+    letter-spacing: 2px;
+  }
+
+  #calc-container {
+    background: #2c1f1f;
+    border-radius: 20px;
+    box-shadow: 0 0 30px #f9d976aa;
+    width: 340px;
     max-width: 100%;
     padding: 20px;
   }
-  .display {
-    background: #f3e5bc;
-    border-radius: 12px;
+
+  #display {
+    background: #3b2b2b;
+    padding: 20px;
+    border-radius: 15px;
     font-size: 2.2em;
     text-align: right;
-    padding: 10px 15px;
-    box-shadow: inset 0 4px 6px #b49f67;
-    margin-bottom: 10px;
-    min-height: 48px;
+    min-height: 60px;
+    user-select: none;
+    box-shadow: inset 0 0 10px #f9d976aa;
+  }
+
+  #result {
+    margin-top: 12px;
+    min-height: 50px;
+    font-size: 1.3em;
+    color: #ffeb8f;
+    font-style: italic;
+    opacity: 0;
+    transition: opacity 0.8s ease;
     user-select: none;
   }
-  .result {
-    background: #fffbf3;
-    border-radius: 12px;
-    font-size: 1.2em;
-    padding: 10px 15px;
-    margin-bottom: 20px;
-    min-height: 60px;
-    box-shadow: inset 0 4px 6px #b49f67;
-  }
-  .buttons {
+
+  #buttons {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    gap: 12px;
+    gap: 15px;
+    margin-top: 25px;
   }
+
   button {
-    font-size: 1.3em;
-    padding: 15px 0;
-    border-radius: 12px;
+    background: #5c3a3a;
     border: none;
-    background: #c9b99a;
-    color: #3e2f1c;
+    border-radius: 15px;
+    color: #f9d976;
+    font-size: 1.5em;
     font-weight: 600;
-    box-shadow: 0 3px 6px rgba(0,0,0,0.12);
-    transition: background 0.3s ease;
-    user-select: none;
-  }
-  button:hover {
-    background: #a89366;
+    padding: 18px 0;
+    box-shadow: 0 6px #3b2424;
     cursor: pointer;
+    user-select: none;
+    transition: background 0.3s, box-shadow 0.1s;
   }
+
   button:active {
-    background: #8a774e;
+    box-shadow: 0 2px #3b2424;
+    transform: translateY(4px);
   }
-  .btn-inspiration {
-    grid-column: span 4;
-    background: #7c6e4f;
+
+  button:hover {
+    background: #f9d976;
+    color: #2c1f1f;
+  }
+
+  #clear {
+    background: #a63939;
+    box-shadow: 0 6px #6e2727;
+  }
+  #clear:hover {
+    background: #d34747;
     color: #fff;
-    font-weight: 700;
-    font-size: 1.1em;
   }
-  .btn-inspiration:hover {
-    background: #6b5f43;
+
+  #equals {
+    background: #f9d976;
+    color: #2c1f1f;
+    font-weight: 700;
+    box-shadow: 0 6px #c3a848;
+  }
+  #equals:hover {
+    background: #ffeb3b;
   }
 </style>
 </head>
 <body>
-  <div class="calculator" role="main" aria-label="Calculadora da Matemática de Jesus">
-    <div class="display" id="display" aria-live="polite" aria-atomic="true">0</div>
-    <div class="result" id="result" aria-live="polite" aria-atomic="true"></div>
-    <div class="buttons">
-      <button data-value="7">7</button>
-      <button data-value="8">8</button>
-      <button data-value="9">9</button>
-      <button data-value="/" aria-label="Dividir">÷</button>
-      
-      <button data-value="4">4</button>
-      <button data-value="5">5</button>
-      <button data-value="6">6</button>
-      <button data-value="*" aria-label="Multiplicar">×</button>
-      
-      <button data-value="1">1</button>
-      <button data-value="2">2</button>
-      <button data-value="3">3</button>
-      <button data-value="-" aria-label="Subtrair">−</button>
-      
-      <button data-value="0">0</button>
-      <button data-value=".">.</button>
-      <button id="clear" aria-label="Limpar">C</button>
-      <button data-value="+" aria-label="Somar">+</button>
-      
-      <button id="equals" class="btn-inspiration" aria-label="Calcular e mostrar versículo">= Calcular & Inspirar</button>
-      <button id="inspiration" class="btn-inspiration" aria-label="Mostrar versículo aleatório">Inspiração</button>
-    </div>
+
+<h1>Calculadora Matemática de Jesus</h1>
+
+<div id="calc-container">
+  <div id="display"></div>
+  <div id="result"></div>
+
+  <div id="buttons">
+    <button data-val="7">7</button>
+    <button data-val="8">8</button>
+    <button data-val="9">9</button>
+    <button data-val="+">+</button>
+
+    <button data-val="4">4</button>
+    <button data-val="5">5</button>
+    <button data-val="6">6</button>
+    <button data-val="-">-</button>
+
+    <button data-val="1">1</button>
+    <button data-val="2">2</button>
+    <button data-val="3">3</button>
+    <button data-val="*">*</button>
+
+    <button data-val="0">0</button>
+    <button id="clear">C</button>
+    <button id="equals">=</button>
+    <button data-val="/">/</button>
   </div>
+</div>
+
+<audio id="clickSound" src="https://actions.google.com/sounds/v1/buttons/button_press.wav"></audio>
 
 <script>
   const display = document.getElementById('display');
-  const resultBox = document.getElementById('result');
-  const buttons = document.querySelectorAll('button[data-value]');
+  const result = document.getElementById('result');
+  const buttons = document.querySelectorAll('#buttons button[data-val]');
   const clearBtn = document.getElementById('clear');
   const equalsBtn = document.getElementById('equals');
-  const inspirationBtn = document.getElementById('inspiration');
+  const clickSound = document.getElementById('clickSound');
 
-  // Versículos bíblicos temáticos
   const verses = [
-    {text: "Confie no Senhor de todo o seu coração e não se apoie em seu próprio entendimento.", ref: "Provérbios 3:5"},
-    {text: "Tudo posso naquele que me fortalece.", ref: "Filipenses 4:13"},
-    {text: "O Senhor é o meu pastor; nada me faltará.", ref: "Salmos 23:1"},
-    {text: "Amarás o teu próximo como a ti mesmo.", ref: "Mateus 22:39"},
-    {text: "Alegrai-vos sempre no Senhor.", ref: "Filipenses 4:4"},
-    {text: "Não temas, porque eu sou contigo; não te assombres, porque eu sou o teu Deus.", ref: "Isaías 41:10"},
-    {text: "Buscai primeiro o Reino de Deus e a sua justiça, e todas essas coisas vos serão acrescentadas.", ref: "Mateus 6:33"},
-    {text: "Aquele que habita no esconderijo do Altíssimo, à sombra do Onipotente descansará.", ref: "Salmos 91:1"},
-    {text: "O Senhor é a minha luz e a minha salvação; a quem temerei?", ref: "Salmos 27:1"},
-    {text: "Porque Deus não nos deu espírito de temor, mas de poder, amor e moderação.", ref: "2 Timóteo 1:7"}
+    "“Tudo posso naquele que me fortalece.” Filipenses 4:13",
+    "“Eu sou o caminho, a verdade e a vida.” João 14:6",
+    "“Deus é o nosso refúgio e fortaleza.” Salmo 46:1",
+    "“Confia no Senhor de todo o teu coração.” Provérbios 3:5",
+    "“Alegrai-vos na esperança, sede pacientes na tribulação.” Romanos 12:12",
+    "“O Senhor é meu pastor; nada me faltará.” Salmo 23:1",
+    "“Buscai primeiro o Reino de Deus.” Mateus 6:33"
   ];
 
   let expression = '';
 
-  // Atualiza display
-  function updateDisplay() {
-    display.textContent = expression || '0';
+  function playClick() {
+    clickSound.currentTime = 0;
+    clickSound.play();
   }
 
   buttons.forEach(btn => {
     btn.addEventListener('click', () => {
-      const val = btn.getAttribute('data-value');
-      // Evitar múltiplos pontos seguidos e operadores inválidos
-      if (val === '.' && expression.endsWith('.')) return;
-      if ("+-*/".includes(val) && expression === '') return;
-      if ("+-*/".includes(val) && "+-*/".includes(expression.slice(-1))) {
-        // substitui operador final
-        expression = expression.slice(0,-1) + val;
-      } else {
-        expression += val;
-      }
-      updateDisplay();
-      resultBox.textContent = '';
+      playClick();
+      expression += btn.getAttribute('data-val');
+      display.textContent = expression;
+      result.style.opacity = 0;
     });
   });
 
   clearBtn.addEventListener('click', () => {
+    playClick();
     expression = '';
-    updateDisplay();
-    resultBox.textContent = '';
+    display.textContent = '';
+    result.style.opacity = 0;
   });
 
   equalsBtn.addEventListener('click', () => {
+    playClick();
     if (!expression) return;
     try {
-      // Avaliar expressão com segurança básica
       let answer = Function(`'use strict'; return (${expression})`)();
       answer = Math.round((answer + Number.EPSILON) * 10000) / 10000;
-      resultBox.textContent = `Resultado: ${answer}\n\n` + getVerseByResult(answer);
-    } catch (e) {
-      resultBox.textContent = "Expressão inválida, tente novamente.";
+
+      // Pega versículo aleatório
+      const verseText = verses[Math.floor(Math.random() * verses.length)];
+
+      result.innerHTML = `<strong>Resultado: ${answer}</strong><br><em>${verseText}</em>`;
+      result.style.opacity = 1;
+
+      // Zera a expressão para nova conta
+      expression = '';
+
+    } catch {
+      result.textContent = 'Expressão inválida!';
+      result.style.opacity = 1;
     }
   });
-
-  inspirationBtn.addEventListener('click', () => {
-    resultBox.textContent = getRandomVerse();
-  });
-
-  // Retorna um versículo aleatório
-  function getRandomVerse() {
-    const v = verses[Math.floor(Math.random() * verses.length)];
-    return `${v.text}\n— ${v.ref}`;
-  }
-
-  // Relaciona resultado numérico a versículos (exemplo simples)
-  function getVerseByResult(num) {
-    if (num < 0) return "Mesmo nas dificuldades, Deus está contigo.\n— Isaías 41:10";
-    if (num === 0) return "Em Deus encontramos equilíbrio e paz.\n— Salmos 46:10";
-    if (num > 0 && num <= 5) return "Pequenos passos levam a grandes conquistas.\n— Filipenses 4:13";
-    if (num > 5 && num <= 10) return "Confie no Senhor para multiplicar suas bênçãos.\n— Mateus 6:33";
-    if (num > 10) return "Grandes são os planos de Deus para você.\n— Jeremias 29:11";
-    return getRandomVerse();
-  }
-
-  updateDisplay();
 </script>
+
 </body>
 </html>
