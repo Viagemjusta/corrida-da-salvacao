@@ -5,88 +5,98 @@
   <title>O Guardião da Verdade</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { background: linear-gradient(#0a0a0a, #1a1a1a); overflow: hidden; color: white; font-family: sans-serif; }
-    canvas { display: block; margin: auto; background: #222; border: 2px solid #fff; }
-
+    body { background: #000; overflow: hidden; font-family: 'Segoe UI', sans-serif; }
+    canvas { display: block; margin: auto; background: linear-gradient(#1c1c1c, #111); border: 2px solid #fff; }
     #score {
       position: absolute;
       top: 10px;
       left: 10px;
-      font-size: 18px;
+      font-size: 20px;
+      color: #0f0;
+      font-weight: bold;
+      text-shadow: 0 0 5px #0f0;
     }
   </style>
 </head>
 <body>
-  <canvas id="game" width="400" height="600"></canvas>
+  <canvas id="game" width="420" height="600"></canvas>
   <div id="score">Pontos: 0</div>
 
   <script>
     const canvas = document.getElementById("game");
     const ctx = canvas.getContext("2d");
 
-    let player = { x: 20, y: 300, w: 40, h: 40 };
-    let bullets = [];
-    let enemies = [];
+    // Carregar imagem do personagem
+    const playerImg = new Image();
+    playerImg.src = "photo-output.png"; // já deve estar no seu GitHub
+
+    const player = { x: 30, y: 250, w: 50, h: 50 };
+    const bullets = [];
+    const enemies = [];
     let score = 0;
 
     function drawPlayer() {
-      ctx.fillStyle = "yellow";
-      ctx.fillRect(player.x, player.y, player.w, player.h);
-      ctx.fillStyle = "black";
-      ctx.fillText("Bíblia", player.x + 2, player.y + 25);
+      ctx.drawImage(playerImg, player.x, player.y, player.w, player.h);
     }
 
     function drawBullets() {
       ctx.fillStyle = "#00f";
       bullets.forEach((b, i) => {
-        b.x += 5;
-        ctx.fillRect(b.x, b.y, 10, 5);
+        b.x += 6;
+        ctx.fillRect(b.x, b.y, 12, 4);
         if (b.x > canvas.width) bullets.splice(i, 1);
       });
     }
 
     function drawEnemies() {
-      ctx.fillStyle = "red";
       enemies.forEach((e, i) => {
-        e.x -= 2;
-        ctx.fillRect(e.x, e.y, e.w, e.h);
+        e.x -= e.speed;
+        ctx.fillStyle = e.color;
+        ctx.beginPath();
+        ctx.moveTo(e.x, e.y + 20);
+        ctx.lineTo(e.x + 30, e.y);
+        ctx.lineTo(e.x + 30, e.y + 40);
+        ctx.closePath();
+        ctx.fill();
 
-        // colisão com player
+        // Colisão com player
         if (
           e.x < player.x + player.w &&
-          e.x + e.w > player.x &&
+          e.x + 30 > player.x &&
           e.y < player.y + player.h &&
-          e.y + e.h > player.y
+          e.y + 40 > player.y
         ) {
-          alert("Você foi atingido por uma mentira!\nFim de jogo.");
+          alert("Você foi atingido por uma mentira! Reinicie e lute novamente!");
           location.reload();
         }
 
-        // colisão com bullets
+        // Colisão com projétil
         bullets.forEach((b, j) => {
           if (
-            b.x < e.x + e.w &&
-            b.x + 10 > e.x &&
-            b.y < e.y + e.h &&
-            b.y + 5 > e.y
+            b.x < e.x + 30 &&
+            b.x + 12 > e.x &&
+            b.y < e.y + 40 &&
+            b.y + 4 > e.y
           ) {
             enemies.splice(i, 1);
             bullets.splice(j, 1);
-            score += 1;
+            score++;
             document.getElementById("score").textContent = `Pontos: ${score}`;
           }
         });
 
-        if (e.x < 0) enemies.splice(i, 1);
+        if (e.x < -30) enemies.splice(i, 1);
       });
     }
 
     function spawnEnemy() {
-      const y = Math.random() * (canvas.height - 40);
-      enemies.push({ x: canvas.width, y: y, w: 40, h: 40 });
-    }
+      const y = Math.random() * (canvas.height - 60);
+      const type = Math.random() > 0.5 ? "faca" : "avião";
+      const color = type === "faca" ? "#f00" : "#0ff";
+      const speed = type === "faca" ? 3 : 2;
 
-    setInterval(spawnEnemy, 1500);
+      enemies.push({ x: canvas.width + 30, y, type, color, speed });
+    }
 
     function gameLoop() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -96,16 +106,21 @@
       requestAnimationFrame(gameLoop);
     }
 
+    // Controles
     canvas.addEventListener("touchstart", () => {
-      bullets.push({ x: player.x + player.w, y: player.y + 15 });
+      bullets.push({ x: player.x + player.w, y: player.y + 20 });
     });
 
     document.addEventListener("keydown", (e) => {
-      if (e.key === "ArrowUp" && player.y > 0) player.y -= 20;
-      if (e.key === "ArrowDown" && player.y + player.h < canvas.height)
+      if (e.key === "ArrowUp" && player.y > 10) player.y -= 20;
+      if (e.key === "ArrowDown" && player.y + player.h < canvas.height - 10)
         player.y += 20;
+      if (e.key === " ") {
+        bullets.push({ x: player.x + player.w, y: player.y + 20 });
+      }
     });
 
+    setInterval(spawnEnemy, 1200);
     gameLoop();
   </script>
 </body>
