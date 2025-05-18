@@ -1,222 +1,202 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-br">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>A Corrida 3D</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Corrida da Salvação</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body, html { width: 100%; height: 100%; background: black; overflow: hidden; }
-
     canvas { display: block; background: black; }
-
-    #startScreen {
-      position: fixed;
-      top: 0; left: 0;
-      width: 100%; height: 100%;
-      background: black;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      z-index: 10;
-    }
-
     #startBtn {
-      padding: 15px 30px;
-      font-size: 24px;
-      background: lime;
-      border: none;
-      border-radius: 8px;
-      cursor: pointer;
-      color: black;
-    }
-
-    #score {
-      position: fixed;
-      top: 10px; left: 10px;
-      color: white;
-      font-size: 20px;
-      z-index: 5;
-    }
-
-    #joystick {
-      position: fixed;
-      bottom: 20px;
-      left: 20px;
-      width: 100px;
-      height: 100px;
-      background: rgba(255, 255, 255, 0.1);
-      border-radius: 50%;
-      z-index: 5;
-      touch-action: none;
-    }
-
-    #stick {
-      width: 40px;
-      height: 40px;
-      background: red;
-      border-radius: 50%;
       position: absolute;
-      left: 30px;
-      top: 30px;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      padding: 20px 40px;
+      font-size: 24px;
+      background-color: gold;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      z-index: 10;
     }
   </style>
 </head>
 <body>
+  <button id="startBtn">START</button>
   <canvas id="gameCanvas"></canvas>
 
-  <div id="startScreen">
-    <h1 style="color:white; margin-bottom:20px;">A Corrida 3D</h1>
-    <button id="startBtn">Start</button>
-  </div>
-
-  <div id="score">Score: 0</div>
-
-  <div id="joystick">
-    <div id="stick"></div>
-  </div>
-
   <script>
-    const canvas = document.getElementById("gameCanvas");
-    const ctx = canvas.getContext("2d");
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const startBtn = document.getElementById('startBtn');
+
+    let width = window.innerWidth;
+    let height = window.innerHeight;
+    canvas.width = width;
+    canvas.height = height;
+
+    let playerImg = new Image();
+    playerImg.src = "https://i.ibb.co/VcHrHcG/photo-output.png"; // Sua imagem 3D simples
 
     let gameStarted = false;
     let score = 0;
 
     const player = {
-      x: canvas.width / 2,
-      y: canvas.height - 100,
-      size: 40,
-      color: "white",
-      speed: 5
+      x: width / 2,
+      y: height / 2,
+      size: 60,
+      speed: 5,
+      dx: 0,
+      dy: 0
     };
 
-    let obstacles = [];
+    let enemies = [];
+    let bullets = [];
 
-    const joystick = document.getElementById("joystick");
-    const stick = document.getElementById("stick");
-    let dragging = false;
-    let dx = 0, dy = 0;
+    function spawnEnemy() {
+      const size = 40;
+      const side = Math.floor(Math.random() * 4);
+      let x, y;
 
-    joystick.addEventListener("touchstart", e => {
-      dragging = true;
-    });
+      if (side === 0) { x = Math.random() * width; y = -size; }
+      else if (side === 1) { x = width + size; y = Math.random() * height; }
+      else if (side === 2) { x = Math.random() * width; y = height + size; }
+      else { x = -size; y = Math.random() * height; }
 
-    joystick.addEventListener("touchmove", e => {
-      e.preventDefault();
-      const touch = e.touches[0];
-      const rect = joystick.getBoundingClientRect();
-      dx = touch.clientX - (rect.left + rect.width / 2);
-      dy = touch.clientY - (rect.top + rect.height / 2);
-      const distance = Math.min(Math.sqrt(dx * dx + dy * dy), 40);
-      const angle = Math.atan2(dy, dx);
-      stick.style.left = 30 + Math.cos(angle) * distance + "px";
-      stick.style.top = 30 + Math.sin(angle) * distance + "px";
-    });
-
-    joystick.addEventListener("touchend", () => {
-      dragging = false;
-      dx = 0; dy = 0;
-      stick.style.left = "30px";
-      stick.style.top = "30px";
-    });
+      enemies.push({ x, y, size, speed: 2 });
+    }
 
     function drawPlayer() {
-      ctx.fillStyle = player.color;
-      ctx.fillRect(player.x, player.y, player.size, player.size);
+      ctx.drawImage(playerImg, player.x, player.y, player.size, player.size);
     }
 
-    function drawObstacles() {
-      ctx.fillStyle = "red";
-      obstacles.forEach(o => {
-        ctx.fillRect(o.x, o.y, o.size, o.size);
+    function drawEnemies() {
+      ctx.fillStyle = 'red';
+      enemies.forEach(e => {
+        ctx.fillRect(e.x, e.y, e.size, e.size);
       });
     }
 
-    function updateObstacles() {
-      obstacles.forEach(o => {
-        o.y += o.speed;
+    function drawBullets() {
+      ctx.fillStyle = 'yellow';
+      bullets.forEach(b => {
+        ctx.fillRect(b.x, b.y, 5, 10);
       });
-
-      obstacles = obstacles.filter(o => o.y < canvas.height + o.size);
     }
 
-    function spawnObstacle() {
-      const size = 30;
-      const x = Math.random() * (canvas.width - size);
-      obstacles.push({
-        x,
-        y: -size,
-        size,
-        speed: 4 + Math.random() * 2
+    function fireBullet() {
+      bullets.push({ x: player.x + player.size / 2 - 2.5, y: player.y, speed: 8 });
+    }
+
+    function updateBullets() {
+      bullets.forEach(b => b.y -= b.speed);
+      bullets = bullets.filter(b => b.y > 0);
+    }
+
+    function moveEnemies() {
+      enemies.forEach(e => {
+        const dx = player.x - e.x;
+        const dy = player.y - e.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        e.x += (dx / dist) * e.speed;
+        e.y += (dy / dist) * e.speed;
       });
     }
 
     function checkCollision() {
-      for (let o of obstacles) {
+      enemies.forEach((e, i) => {
         if (
-          player.x < o.x + o.size &&
-          player.x + player.size > o.x &&
-          player.y < o.y + o.size &&
-          player.y + player.size > o.y
+          player.x < e.x + e.size &&
+          player.x + player.size > e.x &&
+          player.y < e.y + e.size &&
+          player.y + player.size > e.y
         ) {
           gameOver();
         }
-      }
+        bullets.forEach((b, j) => {
+          if (
+            b.x < e.x + e.size &&
+            b.x + 5 > e.x &&
+            b.y < e.y + e.size &&
+            b.y + 10 > e.y
+          ) {
+            enemies.splice(i, 1);
+            bullets.splice(j, 1);
+            score += 1;
+          }
+        });
+      });
+    }
+
+    function drawBackground() {
+      let gradient = ctx.createLinearGradient(0, 0, 0, height);
+      gradient.addColorStop(0, "#000000");
+      gradient.addColorStop(1, "#111111");
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, width, height);
+    }
+
+    function drawScore() {
+      ctx.fillStyle = 'white';
+      ctx.font = '20px Arial';
+      ctx.fillText(`Score: ${score}`, 20, 30);
     }
 
     function gameOver() {
       gameStarted = false;
-      document.getElementById("startScreen").style.display = "flex";
-      document.getElementById("score").textContent = "Score: 0";
+      startBtn.style.display = 'block';
     }
 
-    function resetGame() {
-      score = 0;
-      player.x = canvas.width / 2;
-      player.y = canvas.height - 100;
-      obstacles = [];
+    function updatePlayer() {
+      player.x += player.dx;
+      player.y += player.dy;
+
+      if (player.x < 0) player.x = 0;
+      if (player.y < 0) player.y = 0;
+      if (player.x + player.size > width) player.x = width - player.size;
+      if (player.y + player.size > height) player.y = height - player.size;
     }
 
-    function animate() {
-      requestAnimationFrame(animate);
+    function gameLoop() {
       if (!gameStarted) return;
-
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-      // Movimentação via joystick
-      if (dragging) {
-        player.x += dx * 0.05;
-        player.y += dy * 0.05;
-      }
-
-      player.x = Math.max(0, Math.min(canvas.width - player.size, player.x));
-      player.y = Math.max(0, Math.min(canvas.height - player.size, player.y));
-
-      drawPlayer();
-      drawObstacles();
-      updateObstacles();
+      ctx.clearRect(0, 0, width, height);
+      drawBackground();
+      updatePlayer();
+      updateBullets();
+      moveEnemies();
       checkCollision();
 
-      if (Math.random() < 0.03) {
-        spawnObstacle();
-      }
+      drawPlayer();
+      drawEnemies();
+      drawBullets();
+      drawScore();
 
-      score++;
-      document.getElementById("score").textContent = "Score: " + score;
+      requestAnimationFrame(gameLoop);
     }
 
-    // Start do jogo
-    document.getElementById("startBtn").addEventListener("click", () => {
-      document.getElementById("startScreen").style.display = "none";
+    startBtn.addEventListener('click', () => {
+      enemies = [];
+      bullets = [];
+      player.x = width / 2;
+      player.y = height / 2;
+      score = 0;
       gameStarted = true;
-      resetGame();
+      startBtn.style.display = 'none';
+      gameLoop();
     });
 
-    animate();
+    canvas.addEventListener('touchstart', fireBullet);
+
+    window.addEventListener('deviceorientation', (e) => {
+      if (!gameStarted) return;
+      player.dx = e.gamma * 0.5;
+      player.dy = e.beta * 0.5;
+    });
+
+    setInterval(() => {
+      if (gameStarted) spawnEnemy();
+    }, 1000);
   </script>
 </body>
 </html>
