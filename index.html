@@ -2,113 +2,160 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Corrida 3D Infinita</title>
+  <title>Defender o Céu</title>
   <style>
-    body { margin: 0; overflow: hidden; background: #000; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background: #000;
+      touch-action: none;
+    }
     canvas { display: block; }
     #joystick-container {
       position: absolute;
-      bottom: 30px;
-      left: 30px;
-      width: 100px;
-      height: 100px;
+      bottom: 20px;
+      left: 20px;
+      width: 120px;
+      height: 120px;
+      z-index: 10;
+    }
+    #score {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      color: white;
+      font-family: sans-serif;
+      font-size: 20px;
+      z-index: 10;
     }
   </style>
 </head>
 <body>
+  <div id="score">Pontuação: 0</div>
   <div id="joystick-container"></div>
+
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r148/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/nipplejs@0.9.0/dist/nipplejs.min.js"></script>
   <script>
-    // Cena, câmera e renderizador
+    // Cena e câmera
     const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-    const renderer = new THREE.WebGLRenderer({antialias: true});
+    const camera = new THREE.PerspectiveCamera(70, window.innerWidth/window.innerHeight, 0.1, 1000);
+    camera.position.z = 10;
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     document.body.appendChild(renderer.domElement);
 
     // Luz
     const light = new THREE.DirectionalLight(0xffffff, 1);
-    light.position.set(0, 20, 10);
+    light.position.set(10, 10, 10).normalize();
     scene.add(light);
 
-    // Chão
-    const floorGeometry = new THREE.PlaneGeometry(200, 200);
-    const floorMaterial = new THREE.MeshStandardMaterial({color: 0x222222});
-    const floor = new THREE.Mesh(floorGeometry, floorMaterial);
-    floor.rotation.x = -Math.PI / 2;
-    scene.add(floor);
-
-    // Jogador
-    const playerGeometry = new THREE.BoxGeometry(1, 1, 1);
-    const playerMaterial = new THREE.MeshStandardMaterial({color: 0x00ff00});
+    // Avião (jogador)
+    const playerGeometry = new THREE.ConeGeometry(0.5, 1.5, 8);
+    const playerMaterial = new THREE.MeshStandardMaterial({ color: 0x00ffcc });
     const player = new THREE.Mesh(playerGeometry, playerMaterial);
-    player.position.y = 0.5;
+    player.rotation.x = Math.PI / 2;
+    player.position.z = 0;
     scene.add(player);
 
-    // Obstáculos
-    const obstacles = [];
-    function spawnObstacle() {
-      const geo = new THREE.BoxGeometry(1, 1, 1);
-      const mat = new THREE.MeshStandardMaterial({color: 0xff0000});
-      const obs = new THREE.Mesh(geo, mat);
-      obs.position.set(Math.random() * 6 - 3, 0.5, player.position.z - 30);
-      scene.add(obs);
-      obstacles.push(obs);
+    // Tiros
+    const bullets = [];
+    function shoot() {
+      const bullet = new THREE.Mesh(
+        new THREE.SphereGeometry(0.1, 8, 8),
+        new THREE.MeshBasicMaterial({ color: 0xffff00 })
+      );
+      bullet.position.set(player.position.x, player.position.y, player.position.z - 0.5);
+      scene.add(bullet);
+      bullets.push(bullet);
     }
-    setInterval(spawnObstacle, 1500);
+    setInterval(shoot, 400);
 
-    // Câmera
-    camera.position.z = 5;
-    camera.position.y = 2;
-    camera.lookAt(0, 0, 0);
+    // Inimigos
+    const enemies = [];
+    function spawnEnemy() {
+      const enemy = new THREE.Mesh(
+        new THREE.BoxGeometry(0.8, 0.8, 0.8),
+        new THREE.MeshStandardMaterial({ color: 0xff3333 })
+      );
+      enemy.position.set(
+        (Math.random() - 0.5) * 10,
+        (Math.random() - 0.5) * 10,
+        -30
+      );
+      scene.add(enemy);
+      enemies.push(enemy);
+    }
+    setInterval(spawnEnemy, 1000);
 
     // Joystick
-    let moveX = 0;
+    let input = { x: 0, y: 0 };
     const joystick = nipplejs.create({
       zone: document.getElementById('joystick-container'),
       mode: 'static',
-      position: {left: '50px', bottom: '50px'},
+      position: { left: '60px', bottom: '60px' },
       color: 'white'
     });
 
     joystick.on('move', (evt, data) => {
       if (data && data.vector) {
-        moveX = data.vector.x;
+        input.x = data.vector.x;
+        input.y = data.vector.y;
       }
     });
 
     joystick.on('end', () => {
-      moveX = 0;
+      input.x = 0;
+      input.y = 0;
     });
 
-    // Loop do jogo
+    // Pontuação
+    let score = 0;
+    const scoreText = document.getElementById('score');
+
+    // Animação
     function animate() {
       requestAnimationFrame(animate);
 
       // Movimento do jogador
-      player.position.x += moveX * 0.2;
-      player.position.x = Math.max(-3, Math.min(3, player.position.x));
-      player.position.z -= 0.1; // correr
+      player.position.x += input.x * 0.2;
+      player.position.y += input.y * 0.2;
 
-      // Mover obstáculos
-      for (let obs of obstacles) {
-        obs.position.z += 0.1;
-        if (obs.position.z > camera.position.z) {
-          scene.remove(obs);
+      // Tiros
+      for (let i = bullets.length - 1; i >= 0; i--) {
+        bullets[i].position.z -= 0.5;
+        if (bullets[i].position.z < -50) {
+          scene.remove(bullets[i]);
+          bullets.splice(i, 1);
+        }
+      }
+
+      // Inimigos
+      for (let i = enemies.length - 1; i >= 0; i--) {
+        enemies[i].position.z += 0.2;
+
+        // Colisão com tiro
+        for (let j = bullets.length - 1; j >= 0; j--) {
+          if (enemies[i].position.distanceTo(bullets[j].position) < 0.6) {
+            scene.remove(enemies[i]);
+            scene.remove(bullets[j]);
+            enemies.splice(i, 1);
+            bullets.splice(j, 1);
+            score += 10;
+            scoreText.textContent = "Pontuação: " + score;
+            break;
+          }
         }
 
-        // Colisão simples
-        if (
-          Math.abs(obs.position.x - player.position.x) < 1 &&
-          Math.abs(obs.position.z - player.position.z) < 1
-        ) {
-          alert("Você bateu!");
+        // Colisão com jogador
+        if (enemies[i] && enemies[i].position.distanceTo(player.position) < 0.8) {
+          alert("Você foi atingido! Pontuação: " + score);
           window.location.reload();
         }
       }
 
-      camera.position.z = player.position.z + 5;
       renderer.render(scene, camera);
     }
 
