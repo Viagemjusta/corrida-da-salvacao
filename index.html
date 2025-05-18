@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="pt-br">
+<html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
@@ -8,52 +8,54 @@
     * {
       margin: 0;
       padding: 0;
-      box-sizing: border-box;
     }
 
     body {
-      overflow: hidden;
-      font-family: 'Arial', sans-serif;
       background: linear-gradient(to top, #87CEEB, #ffffff);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
     }
 
     canvas {
-      display: block;
-      margin: auto;
-      background-color: #f0f0f0;
+      background-color: #fff;
+      border: 4px solid #333;
     }
   </style>
 </head>
 <body>
-  <canvas id="gameCanvas" width="800" height="300"></canvas>
+  <canvas id="gameCanvas" width="800" height="400"></canvas>
 
   <script>
-    const canvas = document.getElementById('gameCanvas');
-    const ctx = canvas.getContext('2d');
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
 
     let personagem = new Image();
     personagem.src = "https://github.com/Viagemjusta/corrida-da-salvacao/blob/main/photo-output.png?raw=true";
 
     let personagemX = 50;
-    let personagemY = 230;
+    let personagemY = 300;
     let personagemW = 50;
     let personagemH = 50;
     let velocidadeY = 0;
+    let gravidade = 1.5;
     let pulando = false;
 
     let obstaculoX = 800;
     let obstaculoW = 30;
-    let obstaculoH = 50;
+    let obstaculoH = 60;
 
     let jogoAtivo = true;
+    let pontuacao = 0;
 
     function desenharPersonagem() {
       ctx.drawImage(personagem, personagemX, personagemY, personagemW, personagemH);
     }
 
     function desenharObstaculo() {
-      ctx.fillStyle = "red";
-      ctx.fillRect(obstaculoX, 230, obstaculoW, obstaculoH);
+      ctx.fillStyle = "#8B0000";
+      ctx.fillRect(obstaculoX, 340, obstaculoW, obstaculoH);
     }
 
     function atualizar() {
@@ -61,56 +63,71 @@
 
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      // Gravidade
-      if (personagemY < 230) {
-        velocidadeY += 1.5;
-      } else {
+      // Fundo (chão)
+      ctx.fillStyle = "#228B22";
+      ctx.fillRect(0, 350, canvas.width, 50);
+
+      // Texto
+      ctx.fillStyle = "#000";
+      ctx.font = "18px Arial";
+      ctx.fillText("Pontuação: " + pontuacao, 20, 30);
+
+      // Personagem
+      desenharPersonagem();
+
+      // Obstáculo
+      desenharObstaculo();
+      obstaculoX -= 6;
+
+      if (obstaculoX + obstaculoW < 0) {
+        obstaculoX = 800 + Math.random() * 300;
+        pontuacao++;
+      }
+
+      // Pulo
+      personagemY += velocidadeY;
+      velocidadeY += gravidade;
+
+      if (personagemY > 300) {
+        personagemY = 300;
         velocidadeY = 0;
-        personagemY = 230;
         pulando = false;
       }
-
-      personagemY += velocidadeY;
-
-      obstaculoX -= 6;
-      if (obstaculoX < -obstaculoW) {
-        obstaculoX = 800 + Math.random() * 300;
-      }
-
-      desenharPersonagem();
-      desenharObstaculo();
 
       // Colisão
       if (
         personagemX < obstaculoX + obstaculoW &&
         personagemX + personagemW > obstaculoX &&
-        personagemY + personagemH > 230
+        personagemY + personagemH > 340
       ) {
         jogoAtivo = false;
-        ctx.fillStyle = "black";
+        ctx.fillStyle = "#000";
         ctx.font = "30px Arial";
-        ctx.fillText("Fim de jogo - Persevere na fé!", 200, 150);
+        ctx.fillText("Fim de jogo! Aperte para reiniciar.", 200, 200);
       }
 
-      if (jogoAtivo) {
-        requestAnimationFrame(atualizar);
-      }
+      requestAnimationFrame(atualizar);
     }
 
-    window.addEventListener("keydown", (e) => {
-      if (e.code === "Space" && !pulando) {
-        pulando = true;
+    window.addEventListener("touchstart", () => {
+      if (!pulando && jogoAtivo) {
         velocidadeY = -20;
+        pulando = true;
+      } else if (!jogoAtivo) {
+        reiniciarJogo();
       }
     });
 
-    canvas.addEventListener("touchstart", () => {
-      if (!pulando) {
-        pulando = true;
-        velocidadeY = -20;
-      }
-    });
+    function reiniciarJogo() {
+      personagemY = 300;
+      velocidadeY = 0;
+      obstaculoX = 800;
+      pontuacao = 0;
+      jogoAtivo = true;
+      atualizar();
+    }
 
+    // Começa o jogo só quando a imagem estiver pronta
     personagem.onload = () => {
       atualizar();
     };
