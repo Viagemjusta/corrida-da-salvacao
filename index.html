@@ -1,225 +1,138 @@
 <!DOCTYPE html>
-<html lang="pt">
+<html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Corrida da Salvação</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Calculadora 3D</title>
   <style>
-    html, body {
-      margin: 0;
+    body {
+      margin: 0; 
+      background: #121212;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
       overflow: hidden;
-      background: black;
+      color: white;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      user-select: none;
     }
-
-    #startButton {
-      position: absolute;
-      top: 40%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      padding: 20px 40px;
-      font-size: 24px;
-      background: #00ff99;
+    #container {
+      width: 350px;
+      height: 500px;
+      background: #222;
+      border-radius: 20px;
+      box-shadow: 0 0 20px #0ff;
+      display: flex;
+      flex-direction: column;
+      padding: 20px;
+      box-sizing: border-box;
+    }
+    #display {
+      background: #000;
+      border-radius: 12px;
+      height: 80px;
+      font-size: 2.2em;
+      text-align: right;
+      padding: 10px 20px;
+      box-shadow: inset 0 0 10px #0ff;
+      overflow-wrap: break-word;
+    }
+    #buttons {
+      margin-top: 20px;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 15px;
+    }
+    button {
+      background: #111;
       border: none;
-      color: white;
+      border-radius: 12px;
+      color: #0ff;
+      font-size: 1.5em;
+      font-weight: bold;
+      padding: 20px 0;
+      box-shadow: 0 0 10px #0ff;
       cursor: pointer;
-      z-index: 1;
-      border-radius: 10px;
+      transition: 0.3s;
+      user-select: none;
     }
-
-    #score {
-      position: absolute;
-      top: 10px;
-      left: 10px;
-      color: white;
-      font-size: 18px;
-      z-index: 1;
-    }
-
-    #joystick {
-      position: absolute;
-      bottom: 30px;
-      left: 30px;
-      width: 100px;
-      height: 100px;
-      border-radius: 50%;
-      background: rgba(255, 255, 255, 0.1);
-      border: 2px solid white;
-      touch-action: none;
-      z-index: 1;
-    }
-
-    #stick {
-      position: absolute;
-      width: 40px;
-      height: 40px;
-      border-radius: 50%;
-      background: white;
-      left: 30px;
-      top: 30px;
-      pointer-events: none;
+    button:hover {
+      background: #0ff;
+      color: #111;
+      box-shadow: 0 0 20px #0ff;
     }
   </style>
 </head>
 <body>
-  <div id="score">Pontos: 0</div>
-  <button id="startButton">START</button>
-  <div id="joystick"><div id="stick"></div></div>
+  <div id="container">
+    <div id="display">0</div>
+    <div id="buttons">
+      <button data-val="7">7</button>
+      <button data-val="8">8</button>
+      <button data-val="9">9</button>
+      <button data-val="/" style="color:#f66;">÷</button>
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
+      <button data-val="4">4</button>
+      <button data-val="5">5</button>
+      <button data-val="6">6</button>
+      <button data-val="*" style="color:#f66;">×</button>
+
+      <button data-val="1">1</button>
+      <button data-val="2">2</button>
+      <button data-val="3">3</button>
+      <button data-val="-" style="color:#f66;">−</button>
+
+      <button data-val="0" style="grid-column: span 2;">0</button>
+      <button data-val="." >.</button>
+      <button data-val="+" style="color:#f66;">+</button>
+
+      <button data-val="C" style="grid-column: span 2; color:#f00;">C</button>
+      <button data-val="=" style="grid-column: span 2; background:#0ff; color:#000;">=</button>
+    </div>
+  </div>
 
   <script>
-    let camera, scene, renderer;
-    let player, obstacles = [], bullets = [];
-    let score = 0, scoreText, gameStarted = false;
-    let moveX = 0, moveY = 0;
-    let lastShot = 0;
-    let stick = document.getElementById('stick');
-    let startButton = document.getElementById('startButton');
+    // Vamos implementar o 3D no display com Three.js
+    // E a lógica da calculadora no JS padrão
+    
+    // Cálculo simples com eval (pra ser rápido e simples, pode ser melhorado depois)
+    
+    const display = document.getElementById('display');
+    let currentInput = '';
 
-    const clock = new THREE.Clock();
+    document.getElementById('buttons').addEventListener('click', e => {
+      if (!e.target.matches('button')) return;
+      const val = e.target.getAttribute('data-val');
 
-    function init() {
-      scene = new THREE.Scene();
-
-      camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-      camera.position.z = 5;
-
-      renderer = new THREE.WebGLRenderer({ antialias: true });
-      renderer.setSize(window.innerWidth, window.innerHeight);
-      document.body.appendChild(renderer.domElement);
-
-      const ambientLight = new THREE.AmbientLight(0xffffff, 1);
-      scene.add(ambientLight);
-
-      const geometry = new THREE.ConeGeometry(0.2, 0.6, 32);
-      const material = new THREE.MeshStandardMaterial({ color: 0xff0000 });
-      player = new THREE.Mesh(geometry, material);
-      player.rotation.x = Math.PI / 2;
-      scene.add(player);
-
-      scoreText = document.getElementById("score");
-
-      window.addEventListener('resize', () => {
-        camera.aspect = window.innerWidth / window.innerHeight;
-        camera.updateProjectionMatrix();
-        renderer.setSize(window.innerWidth, window.innerHeight);
-      });
-
-      animate();
-    }
-
-    function resetGame() {
-      score = 0;
-      obstacles.forEach(o => scene.remove(o));
-      bullets.forEach(b => scene.remove(b));
-      obstacles = [];
-      bullets = [];
-      player.position.set(0, 0, 0);
-      gameStarted = true;
-    }
-
-    function spawnObstacle() {
-      const geometry = new THREE.BoxGeometry(0.3, 0.3, 0.3);
-      const material = new THREE.MeshStandardMaterial({ color: 0x00ffff });
-      const obstacle = new THREE.Mesh(geometry, material);
-      obstacle.position.x = (Math.random() - 0.5) * 8;
-      obstacle.position.y = (Math.random() - 0.5) * 6;
-      obstacle.position.z = -20;
-      scene.add(obstacle);
-      obstacles.push(obstacle);
-    }
-
-    function shoot() {
-      const now = Date.now();
-      if (now - lastShot < 300) return;
-      lastShot = now;
-
-      const geometry = new THREE.SphereGeometry(0.1, 8, 8);
-      const material = new THREE.MeshStandardMaterial({ color: 0xffff00 });
-      const bullet = new THREE.Mesh(geometry, material);
-      bullet.position.copy(player.position);
-      scene.add(bullet);
-      bullets.push(bullet);
-    }
-
-    function animate() {
-      requestAnimationFrame(animate);
-      const delta = clock.getDelta();
-
-      if (gameStarted) {
-        player.position.x += moveX * delta * 5;
-        player.position.y += moveY * delta * 5;
-
-        bullets.forEach((b, i) => {
-          b.position.z -= 0.2;
-          if (b.position.z < -30) {
-            scene.remove(b);
-            bullets.splice(i, 1);
-          }
-        });
-
-        obstacles.forEach((o, i) => {
-          o.position.z += 0.1;
-          if (o.position.z > 5) {
-            scene.remove(o);
-            obstacles.splice(i, 1);
-          }
-
-          // colisão
-          if (o.position.distanceTo(player.position) < 0.5) {
-            gameStarted = false;
-            startButton.style.display = "block";
-          }
-
-          // colisão com tiro
-          bullets.forEach((b, j) => {
-            if (o.position.distanceTo(b.position) < 0.3) {
-              scene.remove(o);
-              scene.remove(b);
-              obstacles.splice(i, 1);
-              bullets.splice(j, 1);
-              score++;
-              scoreText.textContent = `Pontos: ${score}`;
-            }
-          });
-        });
-
-        if (Math.random() < 0.03) spawnObstacle();
+      if (val === 'C') {
+        currentInput = '';
+        display.textContent = '0';
+        return;
       }
 
-      renderer.render(scene, camera);
-    }
+      if (val === '=') {
+        try {
+          // Avalia a expressão matemática
+          let result = eval(currentInput);
+          display.textContent = result;
+          currentInput = result.toString();
+        } catch {
+          display.textContent = 'Erro';
+          currentInput = '';
+        }
+        return;
+      }
 
-    // Joystick
-    let joystick = document.getElementById('joystick');
-    joystick.addEventListener('touchmove', (e) => {
-      e.preventDefault();
-      const rect = joystick.getBoundingClientRect();
-      const touch = e.touches[0];
-      const x = touch.clientX - rect.left - 50;
-      const y = touch.clientY - rect.top - 50;
-      moveX = x / 50;
-      moveY = -y / 50;
-      stick.style.transform = `translate(${x}px, ${y}px)`;
-    }, { passive: false });
+      // Evitar dois operadores seguidos
+      if ('+-*/'.includes(val)) {
+        if (currentInput === '' || '+-*/'.includes(currentInput.slice(-1))) return;
+      }
 
-    joystick.addEventListener('touchend', () => {
-      moveX = 0;
-      moveY = 0;
-      stick.style.transform = `translate(30px, 30px)`;
+      currentInput += val;
+      display.textContent = currentInput;
     });
 
-    // Disparo no toque da tela
-    window.addEventListener('touchstart', () => {
-      if (gameStarted) shoot();
-    });
-
-    startButton.addEventListener('click', () => {
-      startButton.style.display = "none";
-      resetGame();
-    });
-
-    init();
   </script>
 </body>
 </html>
