@@ -1,161 +1,155 @@
 <!DOCTYPE html>
-<html>
+<html lang="pt">
 <head>
-  <meta charset="UTF-8">
-  <title>Corrida com Jesus</title>
+  <meta charset="UTF-8" />
+  <title>Guardiões da Rua</title>
   <style>
-    html, body {
-      margin: 0;
-      overflow: hidden;
-      height: 100%;
-      background-color: black;
-    }
-    #renderCanvas {
-      width: 100%;
-      height: 100%;
-      touch-action: none;
-    }
-    #joystick, #jumpBtn {
-      position: absolute;
-      z-index: 10;
-    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    canvas { background: #111; display: block; margin: 0 auto; }
     #joystick {
-      left: 20px;
-      bottom: 20px;
+      position: absolute; bottom: 20px; left: 20px;
+      width: 100px; height: 100px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 50%; touch-action: none;
     }
-    #jumpBtn {
-      right: 20px;
-      bottom: 20px;
-      width: 80px;
-      height: 80px;
-      border-radius: 50%;
-      background-color: #fff;
-      font-weight: bold;
-      font-size: 16px;
-      border: none;
+    #stick {
+      width: 40px; height: 40px;
+      background: white; border-radius: 50%;
+      position: absolute; top: 30px; left: 30px;
     }
-    #verse {
-      position: absolute;
-      top: 10px;
-      width: 100%;
-      color: white;
-      text-align: center;
-      font-family: sans-serif;
-      font-size: 16px;
+    #fireBtn {
+      position: absolute; bottom: 40px; right: 30px;
+      width: 60px; height: 60px; background: red;
+      border-radius: 50%; border: none; color: white;
+      font-weight: bold; font-size: 18px;
     }
   </style>
 </head>
 <body>
-  <canvas id="renderCanvas"></canvas>
-  <div id="verse">"Corro para o alvo, para o prêmio da soberana vocação de Deus." - Filipenses 3:14</div>
-  <div id="joystick"></div>
-  <button id="jumpBtn">Pular</button>
+<canvas id="gameCanvas" width="360" height="600"></canvas>
+<div id="joystick"><div id="stick"></div></div>
+<button id="fireBtn">Fogo</button>
 
-  <script src="https://cdn.babylonjs.com/babylon.js"></script>
-  <script src="https://cdn.babylonjs.com/gui/babylon.gui.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/nipplejs@0.8.6/dist/nipplejs.min.js"></script>
-  <script>
-    const canvas = document.getElementById("renderCanvas");
-    const engine = new BABYLON.Engine(canvas, true);
-    let inputX = 0, isJumping = false;
+<script>
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
 
-    const createScene = () => {
-      const scene = new BABYLON.Scene(engine);
-      scene.clearColor = new BABYLON.Color3.Black();
+const player = { x: 150, y: 500, size: 30, speed: 3 };
+const bullets = [];
+const enemies = [];
+let score = 0;
 
-      const camera = new BABYLON.FreeCamera("camera", new BABYLON.Vector3(0, 5, -10), scene);
-      camera.setTarget(BABYLON.Vector3.Zero());
+function drawPlayer() {
+  ctx.fillStyle = "cyan";
+  ctx.fillRect(player.x, player.y, player.size, player.size);
+}
 
-      const light = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(0, 1, 0), scene);
+function drawBullets() {
+  ctx.fillStyle = "yellow";
+  bullets.forEach(b => {
+    ctx.fillRect(b.x, b.y, 5, 10);
+    b.y -= 5;
+  });
+}
 
-      const ground = BABYLON.MeshBuilder.CreateGround("ground", {width: 10, height: 1000}, scene);
-      ground.position.z = 500;
+function drawEnemies() {
+  ctx.fillStyle = "crimson";
+  enemies.forEach(e => {
+    ctx.fillRect(e.x, e.y, e.size, e.size);
+    e.y += 2;
+  });
+}
 
-      const player = BABYLON.MeshBuilder.CreateBox("player", {height: 2, width: 1, depth: 1}, scene);
-      player.position.y = 1;
-      player.material = new BABYLON.StandardMaterial("mat", scene);
-      player.material.diffuseColor = new BABYLON.Color3(1, 0, 0);
-
-      const obstacles = [];
-      const createObstacle = () => {
-        const box = BABYLON.MeshBuilder.CreateBox("obstacle", {height: 2, width: 1, depth: 1}, scene);
-        box.position.z = player.position.z + 30 + Math.random() * 100;
-        box.position.x = (Math.random() > 0.5 ? 1 : -1) * Math.random() * 4;
-        box.position.y = 1;
-        obstacles.push(box);
-      };
-      for (let i = 0; i < 10; i++) createObstacle();
-
-      // Movimento
-      scene.registerBeforeRender(() => {
-        player.position.z += 0.2;
-        player.position.x += inputX * 0.3;
-
-        camera.position.z = player.position.z - 10;
-        camera.position.x = player.position.x;
-        camera.setTarget(player.position);
-
-        obstacles.forEach(obs => {
-          if (obs.intersectsMesh(player, false)) resetGame(scene, player, obstacles);
-        });
-
-        // Simples gravidade
-        if (player.position.y > 1) {
-          player.position.y -= 0.2;
-        } else {
-          isJumping = false;
-        }
-      });
-
-      return scene;
-    };
-
-    const resetGame = (scene, player, obstacles) => {
-      player.position = new BABYLON.Vector3(0, 1, 0);
-      obstacles.forEach(obs => obs.dispose());
-      obstacles.length = 0;
-      for (let i = 0; i < 10; i++) {
-        const box = BABYLON.MeshBuilder.CreateBox("obstacle", {height: 2, width: 1, depth: 1}, scene);
-        box.position.z = player.position.z + 30 + Math.random() * 100;
-        box.position.x = (Math.random() > 0.5 ? 1 : -1) * Math.random() * 4;
-        box.position.y = 1;
-        obstacles.push(box);
-      }
-    };
-
-    const scene = createScene();
-
-    // Joystick
-    const joystick = nipplejs.create({
-      zone: document.getElementById('joystick'),
-      mode: 'static',
-      position: {left: '50px', bottom: '50px'},
-      color: 'white'
-    });
-
-    joystick.on('move', (evt, data) => {
-      inputX = data.vector.x;
-    });
-
-    joystick.on('end', () => {
-      inputX = 0;
-    });
-
-    // Botão de pulo
-    document.getElementById("jumpBtn").addEventListener("click", () => {
-      if (!isJumping) {
-        scene.getMeshByName("player").position.y = 4;
-        isJumping = true;
+function checkCollisions() {
+  bullets.forEach((b, bi) => {
+    enemies.forEach((e, ei) => {
+      if (b.x < e.x + e.size && b.x + 5 > e.x && b.y < e.y + e.size && b.y + 10 > e.y) {
+        enemies.splice(ei, 1);
+        bullets.splice(bi, 1);
+        score += 10;
       }
     });
+  });
+}
 
-    engine.runRenderLoop(() => {
-      scene.render();
-    });
+function gameOver() {
+  enemies.forEach(e => {
+    if (
+      player.x < e.x + e.size &&
+      player.x + player.size > e.x &&
+      player.y < e.y + e.size &&
+      player.y + player.size > e.y
+    ) {
+      alert("Game Over! Pontuação: " + score);
+      location.reload();
+    }
+  });
+}
 
-    window.addEventListener("resize", () => {
-      engine.resize();
-    });
-  </script>
+function loop() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  drawPlayer();
+  drawBullets();
+  drawEnemies();
+  checkCollisions();
+  gameOver();
+  ctx.fillStyle = "white";
+  ctx.fillText("Pontuação: " + score, 10, 20);
+  requestAnimationFrame(loop);
+}
+
+setInterval(() => {
+  enemies.push({
+    x: Math.random() * (canvas.width - 30),
+    y: -30,
+    size: 30
+  });
+}, 1000);
+
+// Controle com joystick
+let joystick = document.getElementById("joystick");
+let stick = document.getElementById("stick");
+
+let dragging = false, joyStartX = 0, joyStartY = 0;
+
+joystick.addEventListener("touchstart", e => {
+  dragging = true;
+  joyStartX = e.touches[0].clientX;
+  joyStartY = e.touches[0].clientY;
+});
+
+joystick.addEventListener("touchmove", e => {
+  if (!dragging) return;
+  let dx = e.touches[0].clientX - joyStartX;
+  let dy = e.touches[0].clientY - joyStartY;
+  stick.style.transform = `translate(${dx}px, ${dy}px)`;
+
+  // Mover jogador
+  player.x += dx * 0.05;
+  player.y += dy * 0.05;
+
+  // Limites
+  player.x = Math.max(0, Math.min(canvas.width - player.size, player.x));
+  player.y = Math.max(0, Math.min(canvas.height - player.size, player.y));
+
+  joyStartX = e.touches[0].clientX;
+  joyStartY = e.touches[0].clientY;
+});
+
+joystick.addEventListener("touchend", () => {
+  dragging = false;
+  stick.style.transform = `translate(0, 0)`;
+});
+
+// Botão de tiro
+document.getElementById("fireBtn").addEventListener("click", () => {
+  bullets.push({
+    x: player.x + player.size / 2 - 2,
+    y: player.y
+  });
+});
+
+loop();
+</script>
 </body>
 </html>
