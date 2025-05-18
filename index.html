@@ -1,144 +1,161 @@
 <!DOCTYPE html>
-<html lang="pt-br">
+<html>
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Calculadora da Matemática de Jesus</title>
+  <meta charset="UTF-8">
+  <title>Corrida com Jesus</title>
   <style>
-    body {
-      background: linear-gradient(to top, #000000, #1e1e2f);
-      color: #fff;
-      font-family: 'Arial', sans-serif;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
+    html, body {
       margin: 0;
+      overflow: hidden;
+      height: 100%;
+      background-color: black;
     }
-    .calculator {
-      background: #2e2e40;
-      padding: 20px;
-      border-radius: 15px;
-      box-shadow: 0 0 30px #ffdd57;
-      width: 320px;
-      text-align: center;
+    #renderCanvas {
+      width: 100%;
+      height: 100%;
+      touch-action: none;
     }
-    .display {
-      background: #000;
-      color: #0f0;
-      font-size: 1.6rem;
-      padding: 10px;
-      border-radius: 10px;
-      margin-bottom: 15px;
-      min-height: 40px;
+    #joystick, #jumpBtn {
+      position: absolute;
+      z-index: 10;
     }
-    .buttons {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 10px;
+    #joystick {
+      left: 20px;
+      bottom: 20px;
     }
-    button {
-      padding: 15px;
-      font-size: 1.2rem;
-      border: none;
-      border-radius: 8px;
-      background: #444;
-      color: #fff;
-      transition: 0.2s;
-    }
-    button:hover {
-      background: #666;
-    }
-    .faith-mode {
-      margin-top: 15px;
-      background: #ffdd57;
-      color: #000;
+    #jumpBtn {
+      right: 20px;
+      bottom: 20px;
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      background-color: #fff;
       font-weight: bold;
-      border-radius: 8px;
-      padding: 10px;
+      font-size: 16px;
+      border: none;
     }
-    .message {
-      margin-top: 10px;
-      font-style: italic;
-      color: #ffdd57;
-      min-height: 20px;
+    #verse {
+      position: absolute;
+      top: 10px;
+      width: 100%;
+      color: white;
+      text-align: center;
+      font-family: sans-serif;
+      font-size: 16px;
     }
   </style>
 </head>
 <body>
-  <div class="calculator">
-    <div class="display" id="display">0</div>
-    <div class="buttons">
-      <button onclick="add('7')">7</button>
-      <button onclick="add('8')">8</button>
-      <button onclick="add('9')">9</button>
-      <button onclick="add('/')">÷</button>
-      <button onclick="add('4')">4</button>
-      <button onclick="add('5')">5</button>
-      <button onclick="add('6')">6</button>
-      <button onclick="add('*')">×</button>
-      <button onclick="add('1')">1</button>
-      <button onclick="add('2')">2</button>
-      <button onclick="add('3')">3</button>
-      <button onclick="add('-')">-</button>
-      <button onclick="add('0')">0</button>
-      <button onclick="add('.')">.</button>
-      <button onclick="calculate()">=</button>
-      <button onclick="add('+')">+</button>
-      <button onclick="clearDisplay()" style="grid-column: span 2;">C</button>
-      <button onclick="toggleFaithMode()" class="faith-mode" style="grid-column: span 2;">Modo Fé</button>
-    </div>
-    <div class="message" id="message"></div>
-  </div>
+  <canvas id="renderCanvas"></canvas>
+  <div id="verse">"Corro para o alvo, para o prêmio da soberana vocação de Deus." - Filipenses 3:14</div>
+  <div id="joystick"></div>
+  <button id="jumpBtn">Pular</button>
 
+  <script src="https://cdn.babylonjs.com/babylon.js"></script>
+  <script src="https://cdn.babylonjs.com/gui/babylon.gui.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/nipplejs@0.8.6/dist/nipplejs.min.js"></script>
   <script>
-    let display = document.getElementById('display');
-    let message = document.getElementById('message');
-    let faithMode = false;
-    let expression = '';
+    const canvas = document.getElementById("renderCanvas");
+    const engine = new BABYLON.Engine(canvas, true);
+    let inputX = 0, isJumping = false;
 
-    const messagesDeFe = [
-      "Com Jesus, até o impossível se resolve!",
-      "A fé move montanhas... e cálculos também!",
-      "Tudo é possível ao que crê. (Marcos 9:23)",
-      "Entrega teu caminho ao Senhor... até na matemática!",
-      "Deus é Deus de ordem e exatidão!",
-      "A resposta certa vem do céu!"
-    ];
+    const createScene = () => {
+      const scene = new BABYLON.Scene(engine);
+      scene.clearColor = new BABYLON.Color3.Black();
 
-    function add(value) {
-      if (display.textContent === '0') {
-        display.textContent = '';
-      }
-      expression += value;
-      display.textContent = expression;
-      message.textContent = '';
-    }
+      const camera = new BABYLON.FreeCamera("camera", new BABYLON.Vector3(0, 5, -10), scene);
+      camera.setTarget(BABYLON.Vector3.Zero());
 
-    function clearDisplay() {
-      expression = '';
-      display.textContent = '0';
-      message.textContent = '';
-    }
+      const light = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(0, 1, 0), scene);
 
-    function calculate() {
-      try {
-        let result = eval(expression);
-        display.textContent = result;
-        expression = result.toString();
-        if (faithMode) {
-          message.textContent = messagesDeFe[Math.floor(Math.random() * messagesDeFe.length)];
+      const ground = BABYLON.MeshBuilder.CreateGround("ground", {width: 10, height: 1000}, scene);
+      ground.position.z = 500;
+
+      const player = BABYLON.MeshBuilder.CreateBox("player", {height: 2, width: 1, depth: 1}, scene);
+      player.position.y = 1;
+      player.material = new BABYLON.StandardMaterial("mat", scene);
+      player.material.diffuseColor = new BABYLON.Color3(1, 0, 0);
+
+      const obstacles = [];
+      const createObstacle = () => {
+        const box = BABYLON.MeshBuilder.CreateBox("obstacle", {height: 2, width: 1, depth: 1}, scene);
+        box.position.z = player.position.z + 30 + Math.random() * 100;
+        box.position.x = (Math.random() > 0.5 ? 1 : -1) * Math.random() * 4;
+        box.position.y = 1;
+        obstacles.push(box);
+      };
+      for (let i = 0; i < 10; i++) createObstacle();
+
+      // Movimento
+      scene.registerBeforeRender(() => {
+        player.position.z += 0.2;
+        player.position.x += inputX * 0.3;
+
+        camera.position.z = player.position.z - 10;
+        camera.position.x = player.position.x;
+        camera.setTarget(player.position);
+
+        obstacles.forEach(obs => {
+          if (obs.intersectsMesh(player, false)) resetGame(scene, player, obstacles);
+        });
+
+        // Simples gravidade
+        if (player.position.y > 1) {
+          player.position.y -= 0.2;
+        } else {
+          isJumping = false;
         }
-      } catch {
-        display.textContent = 'Erro';
-        message.textContent = 'Confia no Senhor... revise o cálculo!';
-      }
-    }
+      });
 
-    function toggleFaithMode() {
-      faithMode = !faithMode;
-      message.textContent = faithMode ? "Modo Fé ativado! Jesus está resolvendo com você." : "Modo Fé desativado.";
-    }
+      return scene;
+    };
+
+    const resetGame = (scene, player, obstacles) => {
+      player.position = new BABYLON.Vector3(0, 1, 0);
+      obstacles.forEach(obs => obs.dispose());
+      obstacles.length = 0;
+      for (let i = 0; i < 10; i++) {
+        const box = BABYLON.MeshBuilder.CreateBox("obstacle", {height: 2, width: 1, depth: 1}, scene);
+        box.position.z = player.position.z + 30 + Math.random() * 100;
+        box.position.x = (Math.random() > 0.5 ? 1 : -1) * Math.random() * 4;
+        box.position.y = 1;
+        obstacles.push(box);
+      }
+    };
+
+    const scene = createScene();
+
+    // Joystick
+    const joystick = nipplejs.create({
+      zone: document.getElementById('joystick'),
+      mode: 'static',
+      position: {left: '50px', bottom: '50px'},
+      color: 'white'
+    });
+
+    joystick.on('move', (evt, data) => {
+      inputX = data.vector.x;
+    });
+
+    joystick.on('end', () => {
+      inputX = 0;
+    });
+
+    // Botão de pulo
+    document.getElementById("jumpBtn").addEventListener("click", () => {
+      if (!isJumping) {
+        scene.getMeshByName("player").position.y = 4;
+        isJumping = true;
+      }
+    });
+
+    engine.runRenderLoop(() => {
+      scene.render();
+    });
+
+    window.addEventListener("resize", () => {
+      engine.resize();
+    });
   </script>
 </body>
 </html>
