@@ -1,25 +1,19 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-br">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Jogo 3D com tiro e joystick</title>
+<title>Jogo 3D Inovador</title>
 <style>
   body, html {
-    margin: 0; padding: 0; overflow: hidden;
-    background: #000;
-    touch-action: none;
-    user-select: none;
+    margin: 0; padding: 0; overflow: hidden; background: black;
     font-family: Arial, sans-serif;
     color: white;
+    user-select: none;
+    -webkit-user-select: none;
   }
   #score {
-    position: fixed;
-    top: 10px;
-    left: 10px;
-    font-size: 24px;
-    font-weight: bold;
-    z-index: 10;
+    position: fixed; top: 10px; left: 10px; font-size: 24px; z-index: 10;
   }
   #joystick {
     position: fixed;
@@ -27,218 +21,241 @@
     left: 30px;
     width: 120px;
     height: 120px;
-    background: rgba(255,255,255,0.15);
-    border-radius: 50%;
     touch-action: none;
     z-index: 10;
-  }
-  #knob {
-    position: absolute;
-    left: 40px; top: 40px;
-    width: 40px; height: 40px;
-    background: rgba(255,255,255,0.5);
-    border-radius: 50%;
-    touch-action: none;
   }
 </style>
 </head>
 <body>
 
 <div id="score">Pontos: 0</div>
-<div id="joystick">
-  <div id="knob"></div>
-</div>
+<div id="joystick"></div>
 
-<script src="https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.150.1/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/nipplejs@0.9.0/dist/nipplejs.min.js"></script>
 
 <script>
-  // --- Setup básico Three.js ---
+  // === Setup básico Three.js ===
   const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-  const renderer = new THREE.WebGLRenderer({antialias: true});
+
+  // Camera
+  const camera = new THREE.PerspectiveCamera(70, window.innerWidth/window.innerHeight, 0.1, 1000);
+  camera.position.set(0, 15, 20);
+  camera.lookAt(0, 0, 0);
+
+  // Renderizador
+  const renderer = new THREE.WebGLRenderer({antialias:true});
   renderer.setSize(window.innerWidth, window.innerHeight);
   document.body.appendChild(renderer.domElement);
 
-  // Luzes
-  const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
-  scene.add(ambientLight);
-  const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
-  directionalLight.position.set(5,10,7);
-  scene.add(directionalLight);
+  // Luz
+  const light = new THREE.DirectionalLight(0xffffff, 1);
+  light.position.set(10, 20, 10);
+  scene.add(light);
 
-  // --- Personagem (cubo verde estilizado) ---
-  const playerGeometry = new THREE.BoxGeometry(1,1,1);
-  const playerMaterial = new THREE.MeshStandardMaterial({color: 0x00ff00, roughness: 0.5, metalness: 0.7});
-  const player = new THREE.Mesh(playerGeometry, playerMaterial);
+  // Chão - plano escuro
+  const floorGeo = new THREE.PlaneGeometry(30, 30);
+  const floorMat = new THREE.MeshStandardMaterial({color: 0x111111});
+  const floor = new THREE.Mesh(floorGeo, floorMat);
+  floor.rotation.x = -Math.PI / 2;
+  scene.add(floor);
+
+  // Limites do campo (30x30 em X,Z)
+  const LIMIT = 15;
+
+  // Jogador - cubo verde
+  const playerSize = 1.5;
+  const playerGeo = new THREE.BoxGeometry(playerSize, playerSize, playerSize);
+  const playerMat = new THREE.MeshStandardMaterial({color: 0x00ff00});
+  const player = new THREE.Mesh(playerGeo, playerMat);
+  player.position.y = playerSize/2;
   scene.add(player);
 
-  player.position.set(0, 0, 0);
+  // Variáveis controle
+  let velocity = new THREE.Vector3(0,0,0);
+  let speed = 0.2; // aumenta para ficar mais rápido
 
-  camera.position.set(0, 4, 8);
-  camera.lookAt(player.position);
+  // Projéteis
+  const bullets = [];
+  const bulletSpeed = 0.6;
+  const bulletGeo = new THREE.SphereGeometry(0.3, 8, 8);
+  const bulletMat = new THREE.MeshStandardMaterial({color: 0xffff00});
 
-  // --- Projetil ---
-  const projectileGeometry = new THREE.SphereGeometry(0.15, 8, 8);
-  const projectileMaterial = new THREE.MeshStandardMaterial({color: 0xffff00});
-  let projectiles = [];
+  // Inimigos
+  const enemies = [];
+  const enemyGeo = new THREE.SphereGeometry(1, 12, 12);
+  const enemyMat = new THREE.MeshStandardMaterial({color: 0xff0000});
+  const enemySpeedBase = 0.03;
+  let enemySpawnInterval;
+  let enemySpawnTime = 1500; // milissegundos
 
-  // --- Obstáculos variados ---
-  const obstacleTypes = [
-    {geometry: new THREE.SphereGeometry(0.3, 12, 12), color: 0xff0000},  // esfera vermelha
-    {geometry: new THREE.ConeGeometry(0.3, 0.7, 8), color: 0x5555ff},    // cone azul
-    {geometry: new THREE.TetrahedronGeometry(0.35), color: 0xff55ff},     // tetra roxo
-  ];
+  // Pontuação
+  let score = 0;
+  const scoreDiv = document.getElementById('score');
 
-  let obstacles = [];
-  let obstacleSpeed = 0.1;
-
-  function spawnObstacle(){
-    const type = obstacleTypes[Math.floor(Math.random()*obstacleTypes.length)];
-    const mat = new THREE.MeshStandardMaterial({color: type.color});
-    const mesh = new THREE.Mesh(type.geometry, mat);
-
-    mesh.position.x = (Math.random() - 0.5) * 8;
-    mesh.position.z = -25;
-    mesh.position.y = 0;
-
-    scene.add(mesh);
-    obstacles.push(mesh);
+  // Função reiniciar jogo
+  function resetGame() {
+    // Remove inimigos e tiros da cena e dos arrays
+    bullets.forEach(b => scene.remove(b.mesh));
+    enemies.forEach(e => scene.remove(e.mesh));
+    bullets.length = 0;
+    enemies.length = 0;
+    score = 0;
+    updateScore();
+    player.position.set(0, playerSize/2, 0);
+    startSpawning();
   }
 
-  setInterval(spawnObstacle, 1200);
-
-  // --- Joystick ---
-  const joystick = document.getElementById('joystick');
-  const knob = document.getElementById('knob');
-  let dragging = false;
-  let startX = 0, startY = 0;
-  let deltaX = 0, deltaY = 0;
-
-  joystick.addEventListener('touchstart', e => {
-    dragging = true;
-    const touch = e.touches[0];
-    startX = touch.clientX;
-    startY = touch.clientY;
-  }, {passive:false});
-
-  joystick.addEventListener('touchmove', e => {
-    if(!dragging) return;
-    const touch = e.touches[0];
-    deltaX = touch.clientX - startX;
-    deltaY = touch.clientY - startY;
-
-    const maxDist = joystick.clientWidth/2 - knob.clientWidth/2;
-    let dist = Math.sqrt(deltaX*deltaX + deltaY*deltaY);
-    if(dist > maxDist){
-      deltaX = deltaX * maxDist / dist;
-      deltaY = deltaY * maxDist / dist;
+  // Função spawn inimigo em borda aleatória
+  function spawnEnemy() {
+    // Escolhe borda: 0=x min,1=x max,2=z min,3=z max
+    const side = Math.floor(Math.random()*4);
+    let x, z;
+    switch(side) {
+      case 0: x = -LIMIT; z = (Math.random()*2 -1)*LIMIT; break;
+      case 1: x = LIMIT;  z = (Math.random()*2 -1)*LIMIT; break;
+      case 2: x = (Math.random()*2 -1)*LIMIT; z = -LIMIT; break;
+      case 3: x = (Math.random()*2 -1)*LIMIT; z = LIMIT; break;
     }
+    const enemy = {
+      mesh: new THREE.Mesh(enemyGeo, enemyMat),
+      velocity: new THREE.Vector3(),
+    };
+    enemy.mesh.position.set(x, 1, z);
 
-    knob.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
+    // Direção inimigo pro player (normalizada)
+    const dir = new THREE.Vector3().subVectors(player.position, enemy.mesh.position).normalize();
+    enemy.velocity.copy(dir).multiplyScalar(enemySpeedBase + Math.random()*0.02);
+    scene.add(enemy.mesh);
+    enemies.push(enemy);
+  }
 
-    e.preventDefault();
-  }, {passive:false});
+  // Atualizar pontuação
+  function updateScore() {
+    scoreDiv.textContent = 'Pontos: ' + score;
+  }
 
-  joystick.addEventListener('touchend', e => {
-    dragging = false;
-    deltaX = 0;
-    deltaY = 0;
-    knob.style.transform = `translate(0px, 0px)`;
+  // Cria projétil na posição do player, disparado pra frente (direção para onde jogador está olhando)
+  function shoot() {
+    // Vamos fazer o tiro sair na frente do cubo no eixo Z (positivo)
+    // Como o player não gira, disparo será sempre em direção z negativa (pra frente)
+    const bullet = {
+      mesh: new THREE.Mesh(bulletGeo, bulletMat),
+      velocity: new THREE.Vector3(0, 0, -bulletSpeed),
+    };
+    bullet.mesh.position.set(player.position.x, player.position.y, player.position.z - playerSize);
+    scene.add(bullet.mesh);
+    bullets.push(bullet);
+  }
+
+  // Controle joystick usando nipplejs
+  const joystickZone = document.getElementById('joystick');
+  const joystick = nipplejs.create({
+    zone: joystickZone,
+    mode: 'static',
+    position: { left: '60px', bottom: '60px' },
+    color: 'white',
+    size: 100,
   });
 
-  // --- Movimento ---
-  const playerSpeed = 0.12;
-  const scoreDiv = document.getElementById('score');
-  let score = 0;
+  let moveX = 0;
+  let moveZ = 0;
 
-  // --- Controle de disparo ---
+  joystick.on('move', (evt, data) => {
+    const distance = data.distance;
+    const angle = data.angle ? data.angle.radian : 0;
+    moveX = Math.cos(angle) * (distance / 50);
+    moveZ = Math.sin(angle) * (distance / 50);
+    // Limita max velocidade
+    if (moveX > 1) moveX = 1;
+    if (moveX < -1) moveX = -1;
+    if (moveZ > 1) moveZ = 1;
+    if (moveZ < -1) moveZ = -1;
+  });
+
+  joystick.on('end', () => {
+    moveX = 0;
+    moveZ = 0;
+  });
+
+  // Tocar na tela para atirar
   window.addEventListener('touchstart', e => {
-    // Dispara tiro
-    const projectile = new THREE.Mesh(projectileGeometry, projectileMaterial);
-    projectile.position.copy(player.position);
-    projectile.position.y = 0.5;
-    scene.add(projectile);
-    projectiles.push(projectile);
+    shoot();
   });
 
-  // --- Loop do jogo ---
-  function animate(){
+  // Lógica principal do jogo
+  function animate() {
     requestAnimationFrame(animate);
 
-    // Move player
-    const maxDist = joystick.clientWidth/2 - knob.clientWidth/2;
-    const moveX = (deltaX / maxDist) * playerSpeed;
-    const moveZ = (deltaY / maxDist) * playerSpeed;
+    // Movimento do jogador pelo joystick, limitado dentro do campo
+    player.position.x += moveX * speed;
+    player.position.z += moveZ * speed;
 
-    player.position.x += moveX;
-    player.position.z += moveZ;
+    if (player.position.x > LIMIT) player.position.x = LIMIT;
+    if (player.position.x < -LIMIT) player.position.x = -LIMIT;
+    if (player.position.z > LIMIT) player.position.z = LIMIT;
+    if (player.position.z < -LIMIT) player.position.z = -LIMIT;
 
-    // Limites para player
-    if(player.position.x > 4) player.position.x = 4;
-    if(player.position.x < -4) player.position.x = -4;
-    if(player.position.z > 3) player.position.z = 3;
-    if(player.position.z < -10) player.position.z = -10;
+    // Atualiza posição dos projéteis
+    for (let i = bullets.length - 1; i >= 0; i--) {
+      let b = bullets[i];
+      b.mesh.position.add(b.velocity);
 
-    // Move obstáculos
-    obstacles.forEach((obs, i) => {
-      obs.position.z += obstacleSpeed;
-
-      // Remove obstáculo se passar do player
-      if(obs.position.z > 8){
-        scene.remove(obs);
-        obstacles.splice(i, 1);
+      // Remove se sair da área
+      if (b.mesh.position.z < -LIMIT*2 || b.mesh.position.z > LIMIT*2 || b.mesh.position.x < -LIMIT*2 || b.mesh.position.x > LIMIT*2) {
+        scene.remove(b.mesh);
+        bullets.splice(i, 1);
+        continue;
       }
 
-      // Colisão com player
-      const dx = obs.position.x - player.position.x;
-      const dz = obs.position.z - player.position.z;
-      const dist = Math.sqrt(dx*dx + dz*dz);
-      if(dist < 0.8){
-        alert("Você bateu! Pontuação final: " + score);
-        window.location.reload();
-      }
-    });
-
-    // Move e checa projéteis
-    projectiles.forEach((proj, i) => {
-      proj.position.z -= 0.3;
-
-      // Remove se sair da tela
-      if(proj.position.z < -30){
-        scene.remove(proj);
-        projectiles.splice(i,1);
-      }
-
-      // Colisão projétil x obstáculos
-      obstacles.forEach((obs, j) => {
-        const dx = obs.position.x - proj.position.x;
-        const dz = obs.position.z - proj.position.z;
-        const dist = Math.sqrt(dx*dx + dz*dz);
-
-        if(dist < 0.7){
-          // Remove obstáculo e tiro
-          scene.remove(obs);
-          obstacles.splice(j, 1);
-
-          scene.remove(proj);
-          projectiles.splice(i, 1);
-
+      // Checa colisão projétil x inimigo
+      for (let j = enemies.length - 1; j >= 0; j--) {
+        let e = enemies[j];
+        if (b.mesh.position.distanceTo(e.mesh.position) < 1) {
+          // Remove inimigo e projétil
+          scene.remove(e.mesh);
+          scene.remove(b.mesh);
+          enemies.splice(j, 1);
+          bullets.splice(i, 1);
           score++;
-          scoreDiv.textContent = "Pontos: " + score;
+          updateScore();
+          break;
         }
-      });
-    });
+      }
+    }
 
-    // Aumenta dificuldade gradativamente
-    if(score > 0 && score % 10 === 0){
-      obstacleSpeed = 0.1 + (score / 100);
+    // Atualiza inimigos
+    for (let e of enemies) {
+      e.mesh.position.add(e.velocity);
+
+      // Checa colisão inimigo x jogador
+      if (e.mesh.position.distanceTo(player.position) < 1.5) {
+        alert('Você perdeu! Pontuação final: ' + score);
+        resetGame();
+        return;
+      }
     }
 
     renderer.render(scene, camera);
   }
-  // Ajusta o tamanho da tela quando muda o tamanho da janela
-window.addEventListener('resize', () => {
-  camera.aspect = window.innerWidth/window.innerHeight;
-  camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
-});
+
+  // Começar spawn inimigos
+  function startSpawning() {
+    if (enemySpawnInterval) clearInterval(enemySpawnInterval);
+    enemySpawnInterval = setInterval(spawnEnemy, enemySpawnTime);
+  }
+
+  // Inicializa jogo
+  resetGame();
+  animate();
+
+  // Ajuste tela
+  window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth/window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  });
+</script>
+
+</body>
+</html>
