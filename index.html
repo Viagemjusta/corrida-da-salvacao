@@ -1,21 +1,21 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-<meta charset="UTF-8">
-<title>Corrida da Salvação</title>
-<style>
-  body {
-    margin: 0;
-    overflow: hidden;
-    background-color: #f0f8ff;
-  }
-  canvas {
-    display: block;
-    margin: 0 auto;
-    background: #87cefa;
-    border-bottom: 3px solid #228B22;
-  }
-</style>
+  <meta charset="UTF-8">
+  <title>Corrida da Salvação</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      background-color: #e6f2ff;
+    }
+    canvas {
+      display: block;
+      margin: 0 auto;
+      background: linear-gradient(#87cefa, #f0f8ff);
+      border-bottom: 3px solid #228B22;
+    }
+  </style>
 </head>
 <body>
 <canvas id="gameCanvas" width="800" height="300"></canvas>
@@ -23,12 +23,18 @@
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 
-let player = { x: 50, y: 200, width: 40, height: 40, velocityY: 0, jumpPower: -12, gravity: 0.7, grounded: true };
+let player = { x: 50, y: 240, width: 40, height: 40, velocityY: 0, jumpPower: -12, gravity: 0.7, grounded: true };
 let obstacles = [];
 let score = 0;
-let gameSpeed = 4;
+let gameSpeed = 5;
 let frame = 0;
 let gameOver = false;
+
+// tipos de obstáculos
+const obstacleTypes = [
+  { width: 20, height: 40, color: "red", label: "Faca" },
+  { width: 40, height: 20, color: "gray", label: "Avião" }
+];
 
 function drawPlayer() {
   ctx.fillStyle = "black";
@@ -36,13 +42,18 @@ function drawPlayer() {
 }
 
 function drawObstacle(obs) {
-  ctx.fillStyle = "#8B0000";
+  ctx.fillStyle = obs.color;
   ctx.fillRect(obs.x, obs.y, obs.width, obs.height);
+  ctx.fillStyle = "white";
+  ctx.font = "10px Arial";
+  ctx.fillText(obs.label, obs.x + 2, obs.y + 12);
 }
 
 function updateObstacles() {
-  if (frame % 120 === 0) {
-    obstacles.push({ x: canvas.width, y: 260, width: 20, height: 40 });
+  if (frame % 100 === 0) {
+    let type = obstacleTypes[Math.floor(Math.random() * obstacleTypes.length)];
+    let yPos = type.label === "Avião" ? 200 : 260;
+    obstacles.push({ x: canvas.width, y: yPos, ...type });
   }
 
   for (let i = 0; i < obstacles.length; i++) {
@@ -74,7 +85,7 @@ function update() {
   if (gameOver) {
     ctx.fillStyle = "red";
     ctx.font = "30px Arial";
-    ctx.fillText("Fim de jogo - Clique para reiniciar", 200, 150);
+    ctx.fillText("Fim de jogo - Toque para reiniciar", 200, 150);
     return;
   }
 
@@ -89,7 +100,7 @@ function update() {
   player.velocityY += player.gravity;
   player.y += player.velocityY;
 
-  // colisão com o chão
+  // chão
   if (player.y > 240) {
     player.y = 240;
     player.velocityY = 0;
@@ -99,6 +110,7 @@ function update() {
   drawPlayer();
   updateObstacles();
 
+  // pontuação
   score++;
   ctx.fillStyle = "black";
   ctx.font = "20px Arial";
@@ -107,21 +119,8 @@ function update() {
   requestAnimationFrame(update);
 }
 
-canvas.addEventListener("mousedown", function () {
-  if (gameOver) {
-    location.reload();
-  } else {
-    jump();
-  }
-});
-
-canvas.addEventListener("touchstart", function () {
-  if (gameOver) {
-    location.reload();
-  } else {
-    jump();
-  }
-});
+canvas.addEventListener("mousedown", () => gameOver ? location.reload() : jump());
+canvas.addEventListener("touchstart", () => gameOver ? location.reload() : jump());
 
 update();
 </script>
