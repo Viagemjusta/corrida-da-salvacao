@@ -1,140 +1,163 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>3D Runner com Estilo</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Corrida na Floresta</title>
   <style>
     body { margin: 0; overflow: hidden; }
     canvas { display: block; }
-    #joystick-container {
-      position: absolute;
-      bottom: 30px;
-      left: 30px;
+
+    #joystickContainer, #jumpBtn {
+      position: absolute; z-index: 2;
+    }
+
+    #joystickContainer {
+      bottom: 40px; left: 40px;
+      width: 120px; height: 120px;
+    }
+
+    #jumpBtn {
+      bottom: 60px; right: 40px;
+      width: 80px; height: 80px;
+      border-radius: 50%;
+      background: #44c767;
+      border: none;
+      color: white;
+      font-size: 18px;
+      font-weight: bold;
     }
   </style>
 </head>
 <body>
-  <div id="joystick-container"></div>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.158.0/examples/js/loaders/GLTFLoader.js"></script>
+  <div id="joystickContainer"></div>
+  <button id="jumpBtn">PULAR</button>
+
+  <script src="https://cdn.jsdelivr.net/npm/three@0.150.1/build/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.150.1/examples/js/controls/OrbitControls.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/nipplejs@0.9.0/dist/nipplejs.min.js"></script>
 
   <script>
     let scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x87ceeb);
-
-    let camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-    camera.position.set(0, 5, 10);
-
-    let renderer = new THREE.WebGLRenderer({ antialias: true });
+    let camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+    let renderer = new THREE.WebGLRenderer({antialias: true});
     renderer.setSize(window.innerWidth, window.innerHeight);
     document.body.appendChild(renderer.domElement);
 
-    let ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
-    scene.add(ambientLight);
-
-    let directionalLight = new THREE.DirectionalLight(0xffffff, 1);
-    directionalLight.position.set(5, 10, 5);
-    scene.add(directionalLight);
+    // Luz
+    const light = new THREE.DirectionalLight(0xffffff, 1);
+    light.position.set(5, 10, 7);
+    scene.add(light);
+    scene.add(new THREE.AmbientLight(0x404040));
 
     // Chão com textura
-    const loader = new THREE.TextureLoader();
-    const groundTexture = loader.load('https://threejsfundamentals.org/threejs/resources/images/checker.png');
-    groundTexture.wrapS = groundTexture.wrapT = THREE.RepeatWrapping;
-    groundTexture.repeat.set(20, 20);
-
-    const ground = new THREE.Mesh(
-      new THREE.PlaneGeometry(100, 100),
-      new THREE.MeshStandardMaterial({ map: groundTexture })
+    const floorTexture = new THREE.TextureLoader().load('https://i.ibb.co/hYK60k5/grass.jpg');
+    floorTexture.wrapS = floorTexture.wrapT = THREE.RepeatWrapping;
+    floorTexture.repeat.set(20, 100);
+    const floor = new THREE.Mesh(
+      new THREE.PlaneGeometry(40, 1000),
+      new THREE.MeshStandardMaterial({ map: floorTexture })
     );
-    ground.rotation.x = -Math.PI / 2;
-    scene.add(ground);
+    floor.rotation.x = -Math.PI / 2;
+    scene.add(floor);
 
-    // Personagem mais bonito (esfera com cilindro tipo boneco)
-    let player = new THREE.Group();
-
-    const body = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.5, 0.5, 1.5, 32),
-      new THREE.MeshStandardMaterial({ color: 0x0099ff })
+    // Jogador
+    const playerTexture = new THREE.TextureLoader().load('https://i.ibb.co/j3bNC6P/character.png');
+    const player = new THREE.Mesh(
+      new THREE.BoxGeometry(1, 2, 1),
+      new THREE.MeshStandardMaterial({ map: playerTexture })
     );
-
-    const head = new THREE.Mesh(
-      new THREE.SphereGeometry(0.4, 32, 32),
-      new THREE.MeshStandardMaterial({ color: 0xffcc99 })
-    );
-    head.position.y = 1.2;
-
-    player.add(body);
-    player.add(head);
-    player.position.y = 0.75;
+    player.position.set(0, 1, 0);
     scene.add(player);
 
-    // Árvores simples
-    function addTree(x, z) {
-      const trunk = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.2, 0.2, 1),
-        new THREE.MeshStandardMaterial({ color: 0x8b4513 })
-      );
-      trunk.position.set(x, 0.5, z);
+    // Obstáculos
+    let obstacles = [];
 
-      const leaves = new THREE.Mesh(
-        new THREE.SphereGeometry(0.7, 16, 16),
-        new THREE.MeshStandardMaterial({ color: 0x228B22 })
+    function spawnObstacle() {
+      const box = new THREE.Mesh(
+        new THREE.BoxGeometry(1.5, 2, 1.5),
+        new THREE.MeshStandardMaterial({ color: 0x8B0000 })
       );
-      leaves.position.set(x, 1.5, z);
-
-      scene.add(trunk);
-      scene.add(leaves);
+      const lane = [-3, 0, 3][Math.floor(Math.random() * 3)];
+      box.position.set(lane, 1, player.position.z - 50);
+      scene.add(box);
+      obstacles.push(box);
     }
 
-    // Adiciona árvores nos lados
-    for (let i = -40; i <= 40; i += 10) {
-      addTree(-5, i);
-      addTree(5, i);
-    }
+    setInterval(spawnObstacle, 2000);
+
+    // Câmera
+    camera.position.set(0, 5, 8);
+    camera.lookAt(player.position);
 
     // Joystick
+    let moveX = 0;
     const joystick = nipplejs.create({
-      zone: document.getElementById("joystick-container"),
-      mode: "static",
-      position: { left: "60px", bottom: "60px" },
-      color: "black"
+      zone: document.getElementById('joystickContainer'),
+      mode: 'static',
+      position: { left: '60px', bottom: '60px' },
+      color: 'blue'
     });
 
-    let moveX = 0, moveZ = 0;
-
-    joystick.on("move", (evt, data) => {
-      const angle = data.angle.radian;
-      const speed = 0.15;
-      moveX = Math.cos(angle) * speed;
-      moveZ = Math.sin(angle) * speed;
+    joystick.on('move', (evt, data) => {
+      if (data && data.vector) {
+        moveX = data.vector.x;
+      }
     });
-
-    joystick.on("end", () => {
+    joystick.on('end', () => {
       moveX = 0;
-      moveZ = 0;
     });
 
+    // Pular
+    let isJumping = false;
+    let jumpVelocity = 0;
+
+    document.getElementById('jumpBtn').addEventListener('click', () => {
+      if (!isJumping) {
+        jumpVelocity = 0.15;
+        isJumping = true;
+      }
+    });
+
+    // Game Loop
     function animate() {
       requestAnimationFrame(animate);
-      player.position.x += moveX;
-      player.position.z += moveZ;
 
-      // A câmera segue o jogador
-      camera.position.x = player.position.x;
-      camera.position.z = player.position.z + 10;
+      // Correr automático
+      player.position.z -= 0.3;
+
+      // Movimento lateral
+      player.position.x += moveX * 0.5;
+      if (player.position.x < -5) player.position.x = -5;
+      if (player.position.x > 5) player.position.x = 5;
+
+      // Pulo
+      if (isJumping) {
+        player.position.y += jumpVelocity;
+        jumpVelocity -= 0.01;
+        if (player.position.y <= 1) {
+          player.position.y = 1;
+          isJumping = false;
+        }
+      }
+
+      // Mover obstáculos
+      obstacles.forEach((obs, i) => {
+        obs.position.z += 0.3;
+        // Colisão
+        if (obs.position.distanceTo(player.position) < 1.5) {
+          alert("Você bateu!");
+          window.location.reload();
+        }
+      });
+
+      camera.position.z = player.position.z + 8;
       camera.lookAt(player.position);
 
       renderer.render(scene, camera);
     }
 
     animate();
-
-    window.addEventListener("resize", () => {
-      camera.aspect = window.innerWidth / window.innerHeight;
-      camera.updateProjectionMatrix();
-      renderer.setSize(window.innerWidth, window.innerHeight);
-    });
   </script>
 </body>
 </html>
