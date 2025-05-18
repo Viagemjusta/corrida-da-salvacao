@@ -1,8 +1,8 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-br">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Corrida da Salvação</title>
   <style>
     * {
@@ -12,203 +12,108 @@
     }
 
     body {
+      overflow: hidden;
       font-family: 'Arial', sans-serif;
-      background: linear-gradient(to top, #87ceeb, #fff);
-      overflow: hidden;
+      background: linear-gradient(to top, #87CEEB, #ffffff);
     }
 
-    #gameArea {
-      position: relative;
-      width: 100vw;
-      height: 100vh;
-      background-color: #f4eac2;
-      overflow: hidden;
-    }
-
-    #ground {
-      position: absolute;
-      bottom: 0;
-      width: 100%;
-      height: 80px;
-      background-color: #654321;
-    }
-
-    #player {
-      position: absolute;
-      bottom: 80px;
-      left: 50px;
-      width: 60px;
-      height: 80px;
-      background-image: url('https://github.com/Viagemjusta/corrida-da-salvacao/blob/main/personagem.png?raw=true');
-      background-size: cover;
-      background-repeat: no-repeat;
-    }
-
-    .obstacle {
-      position: absolute;
-      bottom: 80px;
-      width: 60px;
-      height: 60px;
-      background-color: #222;
-      border-radius: 8px;
-      animation: obstacleMove 3s linear infinite;
-    }
-
-    @keyframes obstacleMove {
-      0% {
-        left: 100%;
-      }
-      100% {
-        left: -60px;
-      }
-    }
-
-    #score {
-      position: absolute;
-      top: 15px;
-      left: 20px;
-      font-size: 22px;
-      font-weight: bold;
-      color: #222;
-    }
-
-    #gameOver {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      font-size: 32px;
-      color: red;
-      display: none;
-      background-color: #fff;
-      padding: 20px;
-      border-radius: 10px;
-      box-shadow: 0 0 10px black;
+    canvas {
+      display: block;
+      margin: auto;
+      background-color: #f0f0f0;
     }
   </style>
 </head>
 <body>
-  <div id="gameArea">
-    <div id="score">Pontuação: 0</div>
-    <div id="player"></div>
-    <div id="ground"></div>
-    <div id="gameOver">Game Over! Toque para recomeçar</div>
-  </div>
+  <canvas id="gameCanvas" width="800" height="300"></canvas>
 
   <script>
-    const gameArea = document.getElementById('gameArea');
-    const player = document.getElementById('player');
-    const scoreDisplay = document.getElementById('score');
-    const gameOverDisplay = document.getElementById('gameOver');
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
 
-    let score = 0;
-    let jumping = false;
-    let gameRunning = true;
-    let gravity = 0;
-    let position = 0;
+    let personagem = new Image();
+    personagem.src = "https://github.com/Viagemjusta/corrida-da-salvacao/blob/main/photo-output.png?raw=true";
 
-    function jump() {
-      if (jumping || !gameRunning) return;
-      jumping = true;
-      let jumpHeight = 150;
-      let upTime = 0;
+    let personagemX = 50;
+    let personagemY = 230;
+    let personagemW = 50;
+    let personagemH = 50;
+    let velocidadeY = 0;
+    let pulando = false;
 
-      let jumpInterval = setInterval(() => {
-        if (upTime >= 15) {
-          clearInterval(jumpInterval);
-          let fallInterval = setInterval(() => {
-            if (position <= 0) {
-              clearInterval(fallInterval);
-              position = 0;
-              player.style.bottom = '80px';
-              jumping = false;
-            } else {
-              position -= 5;
-              player.style.bottom = 80 + position + 'px';
-            }
-          }, 20);
-        } else {
-          position += 5;
-          player.style.bottom = 80 + position + 'px';
-          upTime++;
-        }
-      }, 20);
+    let obstaculoX = 800;
+    let obstaculoW = 30;
+    let obstaculoH = 50;
+
+    let jogoAtivo = true;
+
+    function desenharPersonagem() {
+      ctx.drawImage(personagem, personagemX, personagemY, personagemW, personagemH);
     }
 
-    function spawnObstacle() {
-      if (!gameRunning) return;
-      const obstacle = document.createElement('div');
-      obstacle.classList.add('obstacle');
-      gameArea.appendChild(obstacle);
-
-      obstacle.style.left = '100%';
-
-      let moveInterval = setInterval(() => {
-        let obstacleLeft = obstacle.offsetLeft;
-        if (!gameRunning) {
-          clearInterval(moveInterval);
-          obstacle.remove();
-          return;
-        }
-
-        if (obstacleLeft < -60) {
-          clearInterval(moveInterval);
-          obstacle.remove();
-          score++;
-          scoreDisplay.textContent = 'Pontuação: ' + score;
-        } else {
-          obstacle.style.left = obstacleLeft - 5 + 'px';
-
-          // colisão
-          let playerRect = player.getBoundingClientRect();
-          let obstacleRect = obstacle.getBoundingClientRect();
-
-          if (
-            playerRect.left < obstacleRect.left + obstacleRect.width &&
-            playerRect.left + playerRect.width > obstacleRect.left &&
-            playerRect.top < obstacleRect.top + obstacleRect.height &&
-            playerRect.height + playerRect.top > obstacleRect.top
-          ) {
-            gameOver();
-          }
-        }
-      }, 20);
+    function desenharObstaculo() {
+      ctx.fillStyle = "red";
+      ctx.fillRect(obstaculoX, 230, obstaculoW, obstaculoH);
     }
 
-    function gameOver() {
-      gameRunning = false;
-      gameOverDisplay.style.display = 'block';
-    }
+    function atualizar() {
+      if (!jogoAtivo) return;
 
-    function resetGame() {
-      document.querySelectorAll('.obstacle').forEach(el => el.remove());
-      score = 0;
-      scoreDisplay.textContent = 'Pontuação: 0';
-      position = 0;
-      player.style.bottom = '80px';
-      gameRunning = true;
-      gameOverDisplay.style.display = 'none';
-    }
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    document.body.addEventListener('mousedown', () => {
-      if (!gameRunning) {
-        resetGame();
+      // Gravidade
+      if (personagemY < 230) {
+        velocidadeY += 1.5;
       } else {
-        jump();
+        velocidadeY = 0;
+        personagemY = 230;
+        pulando = false;
+      }
+
+      personagemY += velocidadeY;
+
+      obstaculoX -= 6;
+      if (obstaculoX < -obstaculoW) {
+        obstaculoX = 800 + Math.random() * 300;
+      }
+
+      desenharPersonagem();
+      desenharObstaculo();
+
+      // Colisão
+      if (
+        personagemX < obstaculoX + obstaculoW &&
+        personagemX + personagemW > obstaculoX &&
+        personagemY + personagemH > 230
+      ) {
+        jogoAtivo = false;
+        ctx.fillStyle = "black";
+        ctx.font = "30px Arial";
+        ctx.fillText("Fim de jogo - Persevere na fé!", 200, 150);
+      }
+
+      if (jogoAtivo) {
+        requestAnimationFrame(atualizar);
+      }
+    }
+
+    window.addEventListener("keydown", (e) => {
+      if (e.code === "Space" && !pulando) {
+        pulando = true;
+        velocidadeY = -20;
       }
     });
 
-    document.body.addEventListener('touchstart', () => {
-      if (!gameRunning) {
-        resetGame();
-      } else {
-        jump();
+    canvas.addEventListener("touchstart", () => {
+      if (!pulando) {
+        pulando = true;
+        velocidadeY = -20;
       }
     });
 
-    setInterval(() => {
-      if (gameRunning) spawnObstacle();
-    }, 2000);
+    personagem.onload = () => {
+      atualizar();
+    };
   </script>
 </body>
 </html>
