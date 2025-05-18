@@ -1,97 +1,129 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta charset="UTF-8">
 <title>Corrida da Salvação</title>
 <style>
-  body, html {
-    margin: 0; padding: 0; overflow: hidden; background: linear-gradient(to top, #87ceeb, #ffffff);
-    font-family: Arial, sans-serif;
+  body {
+    margin: 0;
+    overflow: hidden;
+    background-color: #f0f8ff;
   }
   canvas {
     display: block;
     margin: 0 auto;
-    background: #a0d8f7;
-    border: 2px solid #333;
-  }
-  #message {
-    position: fixed;
-    top: 10px; width: 100%; text-align: center;
-    font-size: 18px; color: #333;
+    background: #87cefa;
+    border-bottom: 3px solid #228B22;
   }
 </style>
 </head>
 <body>
-
-<div id="message">Toque ou clique para pular e seguir com Jesus!</div>
-<canvas id="game" width="600" height="300"></canvas>
-
+<canvas id="gameCanvas" width="800" height="300"></canvas>
 <script>
-const canvas = document.getElementById('game');
-const ctx = canvas.getContext('2d');
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
 
-const playerImg = new Image();
-playerImg.src = 'https://github.com/Viagemjusta/corrida-da-salvacao/blob/main/photo-output.png?raw=true';
+let player = { x: 50, y: 200, width: 40, height: 40, velocityY: 0, jumpPower: -12, gravity: 0.7, grounded: true };
+let obstacles = [];
+let score = 0;
+let gameSpeed = 4;
+let frame = 0;
+let gameOver = false;
 
-const gravity = 0.7;
-const jumpForce = -12;
+function drawPlayer() {
+  ctx.fillStyle = "black";
+  ctx.fillRect(player.x, player.y, player.width, player.height);
+}
 
-let player = {
-  x: 50,
-  y: 0,
-  width: 50,
-  height: 50,
-  velocityY: 0,
-  onGround: false,
-};
+function drawObstacle(obs) {
+  ctx.fillStyle = "#8B0000";
+  ctx.fillRect(obs.x, obs.y, obs.width, obs.height);
+}
 
-let groundY = canvas.height - player.height - 30;
+function updateObstacles() {
+  if (frame % 120 === 0) {
+    obstacles.push({ x: canvas.width, y: 260, width: 20, height: 40 });
+  }
+
+  for (let i = 0; i < obstacles.length; i++) {
+    obstacles[i].x -= gameSpeed;
+
+    // colisão
+    if (
+      player.x < obstacles[i].x + obstacles[i].width &&
+      player.x + player.width > obstacles[i].x &&
+      player.y + player.height > obstacles[i].y
+    ) {
+      gameOver = true;
+    }
+
+    drawObstacle(obstacles[i]);
+  }
+
+  obstacles = obstacles.filter(obs => obs.x + obs.width > 0);
+}
+
+function jump() {
+  if (player.grounded) {
+    player.velocityY = player.jumpPower;
+    player.grounded = false;
+  }
+}
 
 function update() {
+  if (gameOver) {
+    ctx.fillStyle = "red";
+    ctx.font = "30px Arial";
+    ctx.fillText("Fim de jogo - Clique para reiniciar", 200, 150);
+    return;
+  }
+
+  frame++;
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
   // chão
-  ctx.fillStyle = '#2e8b57';
-  ctx.fillRect(0, groundY + player.height, canvas.width, 30);
+  ctx.fillStyle = "#228B22";
+  ctx.fillRect(0, 280, canvas.width, 20);
 
   // gravidade
-  player.velocityY += gravity;
+  player.velocityY += player.gravity;
   player.y += player.velocityY;
 
-  // colisão chão
-  if (player.y > groundY) {
-    player.y = groundY;
+  // colisão com o chão
+  if (player.y > 240) {
+    player.y = 240;
     player.velocityY = 0;
-    player.onGround = true;
+    player.grounded = true;
   }
 
-  // desenhar player
-  ctx.drawImage(playerImg, player.x, player.y, player.width, player.height);
+  drawPlayer();
+  updateObstacles();
+
+  score++;
+  ctx.fillStyle = "black";
+  ctx.font = "20px Arial";
+  ctx.fillText("Pontuação: " + score, 10, 30);
 
   requestAnimationFrame(update);
 }
 
-function jump() {
-  if (player.onGround) {
-    player.velocityY = jumpForce;
-    player.onGround = false;
+canvas.addEventListener("mousedown", function () {
+  if (gameOver) {
+    location.reload();
+  } else {
+    jump();
   }
-}
-
-// esperar imagem carregar e começar jogo
-playerImg.onload = () => {
-  player.y = groundY;
-  update();
-}
-
-// controlar pulo no toque ou clique
-window.addEventListener('keydown', (e) => {
-  if (e.code === 'Space') jump();
 });
-window.addEventListener('touchstart', jump);
-window.addEventListener('mousedown', jump);
-</script>
 
+canvas.addEventListener("touchstart", function () {
+  if (gameOver) {
+    location.reload();
+  } else {
+    jump();
+  }
+});
+
+update();
+</script>
 </body>
 </html>
