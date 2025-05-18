@@ -3,13 +3,14 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Corrida da Salvação - Novo</title>
+<title>Corrida da Salvação - Joystick Só</title>
 <style>
   body {
     margin: 0;
     background: linear-gradient(to top, #87ceeb, #f0f8ff);
     overflow: hidden;
     font-family: Arial, sans-serif;
+    touch-action: none; /* Evitar scroll no mobile */
   }
   canvas {
     display: block;
@@ -25,12 +26,51 @@
     font-size: 3em;
     color: red;
     display: none;
+    z-index: 10;
+  }
+
+  /* Estilo do joystick */
+  #joystick-container {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    width: 120px;
+    height: 120px;
+    background: rgba(0,0,0,0.15);
+    border-radius: 50%;
+    touch-action: none;
+    z-index: 10;
+  }
+  #joystick {
+    position: relative;
+    width: 80px;
+    height: 80px;
+    background: rgba(0,0,0,0.35);
+    border-radius: 50%;
+    margin: 20px auto;
+    touch-action: none;
+  }
+  #stick {
+    position: absolute;
+    width: 40px;
+    height: 40px;
+    background: rgba(255,0,0,0.7);
+    border-radius: 50%;
+    top: 20px;
+    left: 20px;
+    touch-action: none;
   }
 </style>
 </head>
 <body>
 <canvas id="game" width="600" height="400"></canvas>
 <div id="gameover">Fim de Jogo!</div>
+
+<div id="joystick-container">
+  <div id="joystick">
+    <div id="stick"></div>
+  </div>
+</div>
 
 <script>
 const canvas = document.getElementById("game");
@@ -52,20 +92,15 @@ const player = {
   speedX: 5
 };
 
-const keys = {
-  left: false,
-  right: false
-};
-
 // Imagens
 const playerImg = new Image();
-playerImg.src = "photo-output.png"; // aqui coloca o link/caminho da sua imagem no GitHub
+playerImg.src = "photo-output.png"; // Coloque a imagem do personagem aqui
 
 const knifeImg = new Image();
-knifeImg.src = "https://i.ibb.co/2SZDcFz/knife.png"; // Exemplo imagem faca
+knifeImg.src = "https://i.ibb.co/2SZDcFz/knife.png";
 
 const planeImg = new Image();
-planeImg.src = "https://i.ibb.co/HCZ1M2H/plane.png"; // Exemplo imagem avião
+planeImg.src = "https://i.ibb.co/HCZ1M2H/plane.png";
 
 // Obstáculos
 let obstacles = [];
@@ -78,7 +113,7 @@ function createObstacle() {
   const type = types[Math.floor(Math.random() * types.length)];
   const obstacle = {
     x: canvas.width + 50,
-    y: groundLevel + 50 - type.h, // perto do chão
+    y: groundLevel + 50 - type.h,
     w: type.w,
     h: type.h,
     img: type.img,
@@ -87,36 +122,83 @@ function createObstacle() {
   obstacles.push(obstacle);
 }
 
-// Movimento do player no teclado
-document.addEventListener("keydown", (e) => {
-  if (e.key === "ArrowLeft") keys.left = true;
-  if (e.key === "ArrowRight") keys.right = true;
-});
-
-document.addEventListener("keyup", (e) => {
-  if (e.key === "ArrowLeft") keys.left = false;
-  if (e.key === "ArrowRight") keys.right = false;
-});
-
-// Pulo no toque (para celular)
-canvas.addEventListener("touchstart", () => {
+// Pulo no toque da tela
+canvas.addEventListener("touchstart", (e) => {
   if (!player.isJumping) {
     player.velocityY = -15;
     player.isJumping = true;
   }
 });
 
-// Atualiza a posição do player
+// Joystick virtual
+const joystick = document.getElementById("joystick");
+const stick = document.getElementById("stick");
+
+let dragging = false;
+let maxDistance = 30;
+let stickX = 0;
+let stickY = 0;
+
+function getJoystickPos(touch) {
+  const rect = joystick.getBoundingClientRect();
+  let x = touch.clientX - rect.left - rect.width / 2;
+  let y = touch.clientY - rect.top - rect.height / 2;
+  return {x, y};
+}
+
+function onStart(e) {
+  e.preventDefault();
+  dragging = true;
+  let pos = e.touches ? getJoystickPos(e.touches[0]) : {x: e.clientX, y: e.clientY};
+  updateStick(pos.x, pos.y);
+}
+
+function onMove(e) {
+  if (!dragging) return;
+  e.preventDefault();
+  let pos = e.touches ? getJoystickPos(e.touches[0]) : {x: e.clientX, y: e.clientY};
+  let dx = pos.x;
+  let dy = pos.y;
+  const dist = Math.sqrt(dx*dx + dy*dy);
+  if (dist > maxDistance) {
+    dx = (dx / dist) * maxDistance;
+    dy = (dy / dist) * maxDistance;
+  }
+  updateStick(dx, dy);
+}
+
+function onEnd(e) {
+  e.preventDefault();
+  dragging = false;
+  updateStick(0, 0);
+}
+
+function updateStick(x, y) {
+  stick.style.transform = `translate(${x}px, ${y}px)`;
+  stickX = x;
+  stickY = y;
+}
+
+joystick.addEventListener("touchstart", onStart);
+joystick.addEventListener("touchmove", onMove);
+joystick.addEventListener("touchend", onEnd);
+joystick.addEventListener("mousedown", onStart);
+window.addEventListener("mousemove", onMove);
+window.addEventListener("mouseup", onEnd);
+
+// Atualiza posição do player conforme joystick
 function updatePlayer() {
-  // Movimentação horizontal
-  if (keys.left) {
-    player.x -= player.speedX;
-    if (player.x < 0) player.x = 0;
+  // Normaliza
+  let joyX = stickX / maxDistance;
+  
+  // Move só horizontalmente
+  if (Math.abs(joyX) > 0.1) {
+    player.x += joyX * player.speedX;
   }
-  if (keys.right) {
-    player.x += player.speedX;
-    if (player.x + player.w > canvas.width) player.x = canvas.width - player.w;
-  }
+
+  // Limita dentro da tela
+  if (player.x < 0) player.x = 0;
+  if (player.x + player.w > canvas.width) player.x = canvas.width - player.w;
 
   // Gravidade e pulo
   player.velocityY += gravity;
@@ -134,15 +216,11 @@ function updateObstacles() {
   for (let i = obstacles.length - 1; i >= 0; i--) {
     const ob = obstacles[i];
     ob.x -= ob.speed;
-
-    // Remove obstáculos que saíram da tela
-    if (ob.x + ob.w < 0) {
-      obstacles.splice(i, 1);
-    }
+    if (ob.x + ob.w < 0) obstacles.splice(i, 1);
   }
 }
 
-// Detecta colisão simples
+// Colisão
 function detectCollision(rect1, rect2) {
   return (
     rect1.x < rect2.x + rect2.w &&
@@ -152,7 +230,6 @@ function detectCollision(rect1, rect2) {
   );
 }
 
-// Checa colisões com o jogador
 function checkCollisions() {
   for (const ob of obstacles) {
     if (detectCollision(player, ob)) {
@@ -162,50 +239,42 @@ function checkCollisions() {
   }
 }
 
-// Desenha o personagem
-function drawPlayer() {
+// Desenha tudo
+function draw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // Desenha player
   ctx.drawImage(playerImg, player.x, player.y, player.w, player.h);
-}
 
-// Desenha obstáculos
-function drawObstacles() {
-  obstacles.forEach(ob => {
+  // Desenha obstáculos
+  for (const ob of obstacles) {
     ctx.drawImage(ob.img, ob.x, ob.y, ob.w, ob.h);
-  });
-}
-
-// Desenha o chão
-function drawGround() {
-  ctx.fillStyle = "#654321";
-  ctx.fillRect(0, groundLevel + player.h, canvas.width, canvas.height - groundLevel - player.h);
+  }
 }
 
 // Loop principal
+let frameCount = 0;
 function gameLoop() {
   if (gameOver) return;
-
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-  drawGround();
+  frameCount++;
+  if (frameCount % 90 === 0) createObstacle();
 
   updatePlayer();
-  drawPlayer();
-
   updateObstacles();
-  drawObstacles();
-
   checkCollisions();
+  draw();
 
   requestAnimationFrame(gameLoop);
 }
 
-// Começa o jogo e cria obstáculos periódicos
+// Aguarda imagens carregarem antes de iniciar
 playerImg.onload = () => {
-  gameLoop();
-  setInterval(() => {
-    if (!gameOver) createObstacle();
-  }, 1500);
-};
+  knifeImg.onload = () => {
+    planeImg.onload = () => {
+      gameLoop();
+    }
+  }
+}
 </script>
 </body>
 </html>
