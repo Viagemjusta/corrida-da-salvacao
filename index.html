@@ -2,13 +2,13 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<title>Esquiva Colorida</title>
+<title>Runner Psicodélico</title>
 <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { background: #111; overflow: hidden; font-family: Arial, sans-serif; }
-    canvas { display: block; margin: 0 auto; background: #111; }
-    #score { position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
-        color: white; font-size: 24px; font-weight: bold; }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { overflow:hidden; font-family:sans-serif; background:#111; }
+  canvas { display:block; margin:0 auto; background:#111; }
+  #score { position:absolute; top:20px; left:50%; transform:translateX(-50%);
+      color:white; font-size:28px; font-weight:bold; text-shadow:0 0 10px #fff; }
 </style>
 </head>
 <body>
@@ -21,93 +21,150 @@ const ctx = canvas.getContext('2d');
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
-let player = { x: canvas.width/2, y: canvas.height-80, width: 50, height: 50, color: 'cyan' };
-let obstacles = [];
 let score = 0;
 let gameOver = false;
 
-// Gerar obstáculos aleatórios
-function spawnObstacle() {
-    let width = Math.random()*50 + 30;
-    obstacles.push({
-        x: Math.random()*(canvas.width - width),
-        y: -50,
-        width: width,
-        height: 20,
-        color: `hsl(${Math.random()*360}, 100%, 50%)`,
-        speed: Math.random()*3 + 2
+// Jogador (sprite animado simples)
+let player = {
+  x:100,
+  y: canvas.height-150,
+  width:50,
+  height:50,
+  vy:0,
+  gravity:1.2,
+  jumpPower:-18,
+  onGround:true,
+  colorFrames: ['#00ffff','#ff00ff','#ffff00','#00ff00']
+};
+
+// Obstáculos
+let obstacles = [];
+
+// Fundo psicodélico
+let bgHue = 0;
+
+// Partículas
+let particles = [];
+
+// Controles
+window.addEventListener('keydown', e=>{
+  if(e.code==='Space' && player.onGround){
+    player.vy = player.jumpPower;
+    player.onGround = false;
+  }
+});
+
+// Spawn obstáculos
+function spawnObstacle(){
+  let size = Math.random()*50+30;
+  obstacles.push({
+    x: canvas.width+size,
+    y: canvas.height-100-size,
+    width: size,
+    height: size,
+    color: `hsl(${Math.random()*360},100%,50%)`,
+    speed: 8
+  });
+}
+
+// Spawn partículas
+function spawnParticles(){
+  for(let i=0;i<5;i++){
+    particles.push({
+      x:player.x,
+      y:player.y+player.height/2,
+      size: Math.random()*5+2,
+      color: player.colorFrames[Math.floor(Math.random()*player.colorFrames.length)],
+      vx: (Math.random()-0.5)*4,
+      vy: Math.random()*-2-1,
+      life: 60
     });
+  }
 }
 
-// Controle do jogador
-let keys = {};
-window.addEventListener('keydown', e => keys[e.key] = true);
-window.addEventListener('keyup', e => keys[e.key] = false);
+// Atualização
+function update(){
+  if(gameOver) return;
 
-function update() {
-    if (gameOver) return;
+  // Jogador física
+  player.vy += player.gravity;
+  player.y += player.vy;
+  if(player.y + player.height >= canvas.height-100){
+    player.y = canvas.height-100 - player.height;
+    player.vy = 0;
+    player.onGround = true;
+  }
 
-    // Movimentar jogador
-    if (keys['ArrowLeft'] && player.x > 0) player.x -= 8;
-    if (keys['ArrowRight'] && player.x + player.width < canvas.width) player.x += 8;
-
-    // Criar obstáculos
-    if (Math.random() < 0.02) spawnObstacle();
-
-    // Atualizar obstáculos
-    for (let i = obstacles.length-1; i>=0; i--) {
-        let ob = obstacles[i];
-        ob.y += ob.speed;
-
-        // Colisão
-        if (player.x < ob.x + ob.width && player.x + player.width > ob.x &&
-            player.y < ob.y + ob.height && player.y + player.height > ob.y) {
-            gameOver = true;
-        }
-
-        // Remover obstáculos que saem da tela e pontuar
-        if (ob.y > canvas.height) {
-            obstacles.splice(i,1);
-            score++;
-            document.getElementById('score').innerText = "Score: " + score;
-        }
+  // Obstáculos
+  if(Math.random()<0.02) spawnObstacle();
+  obstacles.forEach((ob,i)=>{
+    ob.x -= ob.speed;
+    // Colisão
+    if(player.x < ob.x + ob.width && player.x + player.width > ob.x &&
+       player.y < ob.y + ob.height && player.y + player.height > ob.y){
+      gameOver = true;
     }
-}
-
-// Desenhar tudo
-function draw() {
-    ctx.clearRect(0,0,canvas.width,canvas.height);
-
-    // Jogador
-    ctx.fillStyle = player.color;
-    ctx.fillRect(player.x, player.y, player.width, player.height);
-
-    // Obstáculos
-    obstacles.forEach(ob => {
-        ctx.fillStyle = ob.color;
-        ctx.fillRect(ob.x, ob.y, ob.width, ob.height);
-    });
-
-    // Partículas no fundo
-    for(let i=0;i<5;i++){
-        ctx.fillStyle = `rgba(255,255,255,${Math.random()})`;
-        ctx.fillRect(Math.random()*canvas.width, Math.random()*canvas.height, 2,2);
+    if(ob.x + ob.width < 0){
+      obstacles.splice(i,1);
+      score++;
+      document.getElementById('score').innerText = "Score: "+score;
     }
+  });
 
-    if(gameOver){
-        ctx.fillStyle = 'red';
-        ctx.font = '80px Arial';
-        ctx.fillText('GAME OVER', canvas.width/2-250, canvas.height/2);
-    }
+  // Fundo psicodélico
+  bgHue+=0.5;
+  
+  // Partículas
+  spawnParticles();
+  particles.forEach((p,i)=>{
+    p.x += p.vx;
+    p.y += p.vy;
+    p.life--;
+    if(p.life<=0) particles.splice(i,1);
+  });
 }
 
-// Loop principal
-function loop() {
-    update();
-    draw();
-    requestAnimationFrame(loop);
+// Desenho
+function draw(){
+  // Fundo psicodélico
+  ctx.fillStyle = `hsl(${bgHue%360}, 50%, 5%)`;
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+
+  // Solo
+  ctx.fillStyle='#555';
+  ctx.fillRect(0, canvas.height-100, canvas.width, 100);
+
+  // Jogador
+  let frame = Math.floor((Date.now()/100)%player.colorFrames.length);
+  ctx.fillStyle = player.colorFrames[frame];
+  ctx.fillRect(player.x, player.y, player.width, player.height);
+
+  // Obstáculos
+  obstacles.forEach(ob=>{
+    ctx.fillStyle = ob.color;
+    ctx.fillRect(ob.x, ob.y, ob.width, ob.height);
+  });
+
+  // Partículas
+  particles.forEach(p=>{
+    ctx.fillStyle = p.color;
+    ctx.fillRect(p.x,p.y,p.size,p.size);
+  });
+
+  // Game over
+  if(gameOver){
+    ctx.fillStyle='red';
+    ctx.font='80px Arial';
+    ctx.fillText('GAME OVER', canvas.width/2-250, canvas.height/2);
+  }
 }
 
+// Loop
+function loop(){
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
 loop();
 </script>
 </body>
