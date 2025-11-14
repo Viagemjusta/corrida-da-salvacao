@@ -1,151 +1,129 @@
 <!DOCTYPE html>
-<html lang="pt-br">
+<html lang="pt-BR">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Agenda Total Flex</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chat Privado 🔥</title>
+
 <style>
     body {
-        font-family: Arial, sans-serif;
-        background: linear-gradient(135deg, #4c6ef5, #b197fc);
+        background: linear-gradient(135deg, #ff4d6d, #ff6b98);
         margin: 0;
-        padding: 25px;
-        color: #fff;
+        font-family: Arial;
+        color: white;
+        padding: 20px;
     }
 
-    .card {
-        background: #ffffffee;
-        padding: 25px;
-        border-radius: 25px;
+    .chat-box {
+        background: #ffffffdd;
+        color: #222;
         max-width: 450px;
         margin: auto;
-        box-shadow: 0 12px 30px rgba(0,0,0,0.2);
-        color: #333;
-        animation: fadeIn .6s ease;
+        padding: 20px;
+        border-radius: 20px;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+        animation: fade .6s ease;
     }
 
-    @keyframes fadeIn {
+    @keyframes fade {
         from { opacity: 0; transform: translateY(20px); }
-        to   { opacity: 1; transform: translateY(0); }
+        to { opacity: 1; transform: translateY(0); }
     }
 
-    h1 {
-        margin: 0;
-        font-size: 30px;
-        text-align: center;
-        color: #4c6ef5;
-    }
-
-    p {
-        text-align: center;
-        margin-top: 5px;
-    }
-
-    .loginBox {
-        margin-top: 20px;
-        text-align: center;
-    }
-
-    .emojiBtn {
-        font-size: 32px;
+    .msg {
+        background: #ffe3ec;
         padding: 12px;
-        margin: 7px;
-        background: #f1f3ff;
-        border: none;
         border-radius: 15px;
-        cursor: pointer;
-        transition: transform 0.15s;
+        margin: 10px 0;
+        display: inline-block;
+        max-width: 80%;
     }
 
-    .emojiBtn:active {
-        transform: scale(0.9);
+    .bot {
+        background: #fad2e1;
+        align-self: flex-start;
     }
 
-    #agenda {
-        display: none;
+    .user {
+        background: #ffc2d1;
+        align-self: flex-end;
+        margin-left: auto;
+    }
+
+    #input-area {
+        display: flex;
         margin-top: 20px;
     }
 
-    textarea {
-        width: 100%;
-        height: 250px;
-        padding: 15px;
-        border-radius: 15px;
-        border: 2px solid #cbd3ff;
-        outline: none;
+    input {
+        flex: 1;
+        padding: 10px;
+        border-radius: 10px;
+        border: none;
         font-size: 16px;
-        box-sizing: border-box;
     }
 
-    .btn {
-        width: 100%;
-        margin-top: 12px;
-        padding: 14px;
+    button {
+        margin-left: 10px;
+        padding: 10px 15px;
+        background: #ff477e;
         border: none;
-        border-radius: 12px;
-        background: #4c6ef5;
+        border-radius: 10px;
         color: white;
-        font-size: 18px;
         cursor: pointer;
+        font-size: 16px;
         transition: .2s;
     }
 
-    .btn:hover {
-        background: #3b5bdb;
+    button:hover {
+        background: #ff2d66;
     }
 </style>
 </head>
+
 <body>
 
-<div class="card">
-    <h1>Agenda Total Flex</h1>
-    <p>Entre usando 3 emojis</p>
+<div class="chat-box" id="chat">
+    <div class="msg bot">👄 Oi… tava esperando você entrar aqui…</div>
+</div>
 
-    <div id="login" class="loginBox">
-        <h2 id="emojiArea" style="min-height: 40px;"></h2>
-
-        <button class="emojiBtn">🔥</button>
-        <button class="emojiBtn">⭐</button>
-        <button class="emojiBtn">💙</button>
-        <button class="emojiBtn">🎯</button>
-        <button class="emojiBtn">👑</button>
-        <button class="emojiBtn">⚡</button>
-        <button class="emojiBtn">🌈</button>
-    </div>
-
-    <div id="agenda">
-        <textarea id="notes" placeholder="Escreva suas anotações aqui..."></textarea>
-        <button class="btn" onclick="save()">Salvar</button>
-    </div>
+<div id="input-area">
+    <input id="userInput" placeholder="Digite algo..." autocomplete="off">
+    <button onclick="send()">Enviar</button>
 </div>
 
 <script>
-let code = "";
-let saved = localStorage.getItem("agendaLogin");
+let respostas = [
+    "😏 Hmmm… gostei do jeito que você fala.",
+    "🔥 Pode continuar… tô prestando atenção.",
+    "💋 Você sempre fala assim ou só quando está interessado?",
+    "😉 Adoro quando você digita desse jeito.",
+    "😳 Continua… tô ficando curiosa.",
+    "✨ Você é diferente… dá pra sentir.",
+    "👀 Não para agora não…"
+];
 
-if(saved) showAgenda();
+function send() {
+    let input = document.getElementById("userInput");
+    let text = input.value.trim();
+    if (text === "") return;
 
-document.querySelectorAll(".emojiBtn").forEach(btn => {
-    btn.onclick = () => {
-        code += btn.innerText;
-        document.getElementById("emojiArea").innerText = code;
+    addMessage(text, "user");
+    input.value = "";
 
-        if (code.length >= 3) {
-            localStorage.setItem("agendaLogin", code);
-            showAgenda();
-        }
-    };
-});
-
-function showAgenda() {
-    document.getElementById("login").style.display = "none";
-    document.getElementById("agenda").style.display = "block";
-    document.getElementById("notes").value = localStorage.getItem("agendaData") || "";
+    setTimeout(() => {
+        let resposta = respostas[Math.floor(Math.random() * respostas.length)];
+        addMessage(resposta, "bot");
+    }, 700);
 }
 
-function save() {
-    localStorage.setItem("agendaData", document.getElementById("notes").value);
-    alert("Salvo com sucesso!");
+function addMessage(text, type) {
+    let chat = document.getElementById("chat");
+    let div = document.createElement("div");
+    div.className = "msg " + type;
+    div.textContent = text;
+    chat.appendChild(div);
+    chat.scrollTop = chat.scrollHeight;
 }
 </script>
 
