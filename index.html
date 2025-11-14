@@ -1,367 +1,114 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Fortune Demo — Slot</title>
+<meta charset="UTF-8">
+<title>Esquiva Colorida</title>
 <style>
-  :root{
-    --bg:#FFF7EE;
-    --card:#fff;
-    --accent1:#FF6B6B;
-    --accent2:#FFB86B;
-    --muted:#6b7280;
-    --green:#10b981;
-    --shadow: 0 8px 30px rgba(16,24,40,0.08);
-    font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
-  }
-  *{box-sizing:border-box}
-  body{margin:0;background:linear-gradient(180deg,#FFF7EE,#FFFDF9);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:18px;}
-  .wrap{width:100%;max-width:520px}
-  .card{background:var(--card);border-radius:20px;padding:14px;box-shadow:var(--shadow);overflow:hidden}
-  header{display:flex;align-items:center;gap:12px;padding:6px 6px 12px}
-  .logo{width:56px;height:56px;border-radius:12px;background:linear-gradient(135deg,var(--accent1),var(--accent2));display:flex;align-items:center;justify-content:center;color:white;font-weight:800;font-size:20px}
-  h1{margin:0;font-size:18px}
-  p.lead{margin:2px 0 0;color:var(--muted);font-size:13px}
-  .topbar{display:flex;gap:8px;align-items:center;justify-content:space-between;padding:8px}
-  .balance{font-weight:700;font-size:18px}
-  .controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-  .btn{background:linear-gradient(90deg,var(--accent1),var(--accent2));color:white;border:0;padding:10px 14px;border-radius:12px;font-weight:700;cursor:pointer;box-shadow:0 8px 18px rgba(255,107,107,0.12)}
-  .btn.ghost{background:transparent;border:1px solid rgba(16,24,40,0.05);color:#111}
-  .slot-area{display:flex;align-items:center;justify-content:center;padding:8px}
-  .reels{display:flex;gap:8px;background:linear-gradient(180deg,#FFFDFC,#FFF8F0);padding:12px;border-radius:16px}
-  .reel{width:88px;height:180px;border-radius:12px;overflow:hidden;border:1px solid rgba(16,24,40,0.03);background:linear-gradient(180deg,#fff,#fff8)}
-  .strip{display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:8px;padding:12px;transition:transform 0.5s cubic-bezier(.2,.9,.25,1)}
-  .cell{width:64px;height:64px;border-radius:12px;background:linear-gradient(180deg,#fff,#fff);display:flex;align-items:center;justify-content:center;font-size:34px;box-shadow:0 6px 16px rgba(16,24,40,0.04)}
-  .panel{display:flex;gap:8px;align-items:center;justify-content:space-between;padding:12px}
-  .bet-select{display:flex;gap:6px}
-  .pill{padding:6px 10px;border-radius:10px;border:1px solid rgba(16,24,40,0.04);background:#fff;font-weight:700}
-  .small{font-size:13px;color:var(--muted)}
-  .footer{display:flex;gap:8px;align-items:center;justify-content:space-between;padding:12px}
-  .result{padding:8px;border-radius:10px;background:linear-gradient(90deg,#fff9f3,#fff);font-weight:700}
-  .disclaimer{font-size:12px;color:var(--muted);text-align:center;padding:8px}
-  /* responsive */
-  @media(max-width:420px){
-    .reel{width:72px;height:160px}
-    .cell{width:54px;height:54px;font-size:28px}
-  }
-  /* confetti canvas sits full */
-  canvas.confetti{position:fixed;left:0;top:0;width:100%;height:100%;pointer-events:none;z-index:999}
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #111; overflow: hidden; font-family: Arial, sans-serif; }
+    canvas { display: block; margin: 0 auto; background: #111; }
+    #score { position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
+        color: white; font-size: 24px; font-weight: bold; }
 </style>
 </head>
 <body>
-
-<div class="wrap">
-  <div class="card">
-    <header>
-      <div class="logo">FT</div>
-      <div>
-        <h1>Fortune Demo</h1>
-        <p class="lead">Demo estilo "Fortune" — diversão apenas (saldo falso)</p>
-      </div>
-    </header>
-
-    <div class="topbar">
-      <div>
-        <div class="small">Saldo</div>
-        <div class="balance" id="balance">R$ 1.000</div>
-      </div>
-      <div class="controls">
-        <div class="small">Aposta</div>
-        <div class="bet-select" id="bets">
-          <button class="pill" data-bet="1">1</button>
-          <button class="pill" data-bet="2">2</button>
-          <button class="pill" data-bet="5">5</button>
-        </div>
-        <button class="btn ghost" id="resetBtn">Reset</button>
-      </div>
-    </div>
-
-    <div class="slot-area">
-      <div class="reels" id="reels">
-        <div class="reel"><div class="strip" id="strip0"></div></div>
-        <div class="reel"><div class="strip" id="strip1"></div></div>
-        <div class="reel"><div class="strip" id="strip2"></div></div>
-      </div>
-    </div>
-
-    <div class="panel">
-      <div class="result" id="resultMsg">Pronto para girar</div>
-      <div>
-        <button class="btn" id="spinBtn">GIRAR</button>
-        <button class="btn ghost" id="autoBtn">Auto (x5)</button>
-      </div>
-    </div>
-
-    <div class="footer">
-      <div class="small">Linhas pagas: 3 (horizontal)</div>
-      <div class="small">Vence 3 símbolos iguais — paga múltiplos</div>
-    </div>
-
-    <div class="disclaimer">Demo de entretenimento — sem dinheiro real. Use com responsabilidade.</div>
-  </div>
-</div>
-
-<canvas class="confetti" id="confetti"></canvas>
+<div id="score">Score: 0</div>
+<canvas id="gameCanvas"></canvas>
 
 <script>
-/* Fortune-style Slot Demo
-   - Symbols: emojis (cute)
-   - 3 reels, 3 visible rows
-   - Fake balance and bets
-   - Animated spinning
-*/
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
 
-// Symbols and pay multipliers
-const SYMBOLS = [
-  {s:'🐯', pay:10},
-  {s:'🐰', pay:8},
-  {s:'🍊', pay:6},
-  {s:'🔔', pay:5},
-  {s:'⭐', pay:4},
-  {s:'💎', pay:12},
-  {s:'🍀', pay:3}
-];
+let player = { x: canvas.width/2, y: canvas.height-80, width: 50, height: 50, color: 'cyan' };
+let obstacles = [];
+let score = 0;
+let gameOver = false;
 
-// state
-let balance = parseFloat(localStorage.getItem('ft_balance') || "1000");
-let bet = parseInt(localStorage.getItem('ft_bet') || "1");
-let isSpinning = false;
-let autoCount = 0;
-
-const balanceEl = document.getElementById('balance');
-const resultEl = document.getElementById('resultMsg');
-const spinBtn = document.getElementById('spinBtn');
-const autoBtn = document.getElementById('autoBtn');
-const betsEl = document.getElementById('bets');
-const confettiCanvas = document.getElementById('confetti');
-
-function updateUI(){
-  balanceEl.innerText = `R$ ${formatNum(balance)}`;
-  // mark bet
-  betsEl.querySelectorAll('button').forEach(b=>{
-    b.style.background = (parseInt(b.dataset.bet)===bet) ? 'linear-gradient(90deg,#FF6B6B,#FFB86B)' : '#fff';
-    b.style.color = (parseInt(b.dataset.bet)===bet) ? '#fff' : '#111';
-  });
-}
-function formatNum(n){ return Number(n).toLocaleString('pt-BR',{maximumFractionDigits:0}); }
-
-// prepare strips
-const strips = [document.getElementById('strip0'), document.getElementById('strip1'), document.getElementById('strip2')];
-function buildStrip(el){
-  el.innerHTML = '';
-  // make long list to allow spin illusion
-  for(let i=0;i<24;i++){
-    const sym = SYMBOLS[Math.floor(Math.random()*SYMBOLS.length)].s;
-    const d = document.createElement('div'); d.className='cell'; d.innerText = sym;
-    el.appendChild(d);
-  }
-}
-strips.forEach(buildStrip);
-
-// bet selection
-betsEl.addEventListener('click', (e)=>{
-  const b = e.target.closest('button');
-  if(!b) return;
-  bet = parseInt(b.dataset.bet);
-  localStorage.setItem('ft_bet', bet);
-  updateUI();
-});
-
-// reset
-document.getElementById('resetBtn').addEventListener('click', ()=>{
-  if(confirm('Resetar saldo para 1000?')){ balance=1000; localStorage.setItem('ft_balance', balance); updateUI(); }
-});
-
-// spin logic
-spinBtn.addEventListener('click', spin);
-autoBtn.addEventListener('click', ()=>{
-  if(isSpinning) return;
-  autoCount = 5;
-  runAuto();
-});
-
-async function runAuto(){
-  autoBtn.innerText = `Auto (x${autoCount})`;
-  if(autoCount>0){
-    await spin();
-    autoCount--;
-    runAuto();
-  } else {
-    autoBtn.innerText = 'Auto (x5)';
-  }
+// Gerar obstáculos aleatórios
+function spawnObstacle() {
+    let width = Math.random()*50 + 30;
+    obstacles.push({
+        x: Math.random()*(canvas.width - width),
+        y: -50,
+        width: width,
+        height: 20,
+        color: `hsl(${Math.random()*360}, 100%, 50%)`,
+        speed: Math.random()*3 + 2
+    });
 }
 
-function randomOutcome(){ // produce visible 3x3 result
-  // choose whether win or not (make wins somewhat rare)
-  const winRoll = Math.random();
-  if(winRoll < 0.22){ // win
-    const winSymbol = SYMBOLS[Math.floor(Math.random()*SYMBOLS.length)].s;
-    return [
-      [winSymbol, randomSym(2), randomSym(2)],
-      [winSymbol, randomSym(2), randomSym(2)],
-      [winSymbol, randomSym(2), randomSym(2)]
-    ];
-  } else {
-    // no guaranteed 3-line win: random matrix
-    return [
-      [randomSym(), randomSym(), randomSym()],
-      [randomSym(), randomSym(), randomSym()],
-      [randomSym(), randomSym(), randomSym()]
-    ];
-  }
-}
-function randomSym(weighted){
-  return SYMBOLS[Math.floor(Math.random()*SYMBOLS.length)].s;
-}
+// Controle do jogador
+let keys = {};
+window.addEventListener('keydown', e => keys[e.key] = true);
+window.addEventListener('keyup', e => keys[e.key] = false);
 
-function visibleToStr(mat){
-  return mat.map(r=>r.join('')).join('|');
-}
+function update() {
+    if (gameOver) return;
 
-function evaluate(mat){
-  // check 3 horizontal lines (rows)
-  for(let r=0;r<3;r++){
-    if(mat[r][0]===mat[r][1] && mat[r][1]===mat[r][2]){
-      const sym = mat[r][0];
-      const multiplier = SYMBOLS.find(s=>s.s===sym).pay;
-      return {win:true, row:r, symbol:sym, multiplier};
+    // Movimentar jogador
+    if (keys['ArrowLeft'] && player.x > 0) player.x -= 8;
+    if (keys['ArrowRight'] && player.x + player.width < canvas.width) player.x += 8;
+
+    // Criar obstáculos
+    if (Math.random() < 0.02) spawnObstacle();
+
+    // Atualizar obstáculos
+    for (let i = obstacles.length-1; i>=0; i--) {
+        let ob = obstacles[i];
+        ob.y += ob.speed;
+
+        // Colisão
+        if (player.x < ob.x + ob.width && player.x + player.width > ob.x &&
+            player.y < ob.y + ob.height && player.y + player.height > ob.y) {
+            gameOver = true;
+        }
+
+        // Remover obstáculos que saem da tela e pontuar
+        if (ob.y > canvas.height) {
+            obstacles.splice(i,1);
+            score++;
+            document.getElementById('score').innerText = "Score: " + score;
+        }
     }
-  }
-  return {win:false};
 }
 
-function sleep(ms){ return new Promise(r=>setTimeout(r,ms)); }
+// Desenhar tudo
+function draw() {
+    ctx.clearRect(0,0,canvas.width,canvas.height);
 
-async function spin(){
-  if(isSpinning) return;
-  if(balance < bet){ alert('Saldo insuficiente. Use Reset para restaurar.'); return; }
-  isSpinning = true;
-  resultEl.innerText = 'Girando...';
-  balance -= bet;
-  localStorage.setItem('ft_balance', balance);
-  updateUI();
+    // Jogador
+    ctx.fillStyle = player.color;
+    ctx.fillRect(player.x, player.y, player.width, player.height);
 
-  // generate target visible matrix
-  const target = randomOutcome(); // 3x3 array
-  // for each reel, animate by replacing strip items and translate
-  for(let r=0;r<3;r++){
-    // fill strip with random symbols then ensure center becomes target center after stop
-    const strip = strips[r];
-    // randomize strip content
-    strip.innerHTML = '';
-    const seq = [];
-    for(let i=0;i<30;i++) seq.push(SYMBOLS[Math.floor(Math.random()*SYMBOLS.length)].s);
-    // ensure center position (index ~ 12) set to target middle row for that reel
-    seq[12] = target[1][r]; // middle row
-    seq[11] = target[0][r]; // top
-    seq[13] = target[2][r]; // bottom
-    seq.forEach(sym=>{
-      const d = document.createElement('div'); d.className='cell'; d.innerText = sym; strip.appendChild(d);
+    // Obstáculos
+    obstacles.forEach(ob => {
+        ctx.fillStyle = ob.color;
+        ctx.fillRect(ob.x, ob.y, ob.width, ob.height);
     });
-    // reset transform
-    strip.style.transition = 'none';
-    strip.style.transform = 'translateY(-' + ( (Math.random()*400) ) + 'px)';
-  }
 
-  // sequentially stop reels
-  for(let r=0;r<3;r++){
-    // spin effect: repeatedly move
-    const strip = strips[r];
-    // do animated stop
-    const offset = 12 * (64 + 8) - 20; // approx position of center cell (adjust)
-    strip.style.transition = `transform ${0.9 + r*0.5}s cubic-bezier(.2,.9,.25,1)`;
-    strip.style.transform = `translateY(-${offset}px)`;
-    await sleep(600 + r*450);
-  }
+    // Partículas no fundo
+    for(let i=0;i<5;i++){
+        ctx.fillStyle = `rgba(255,255,255,${Math.random()})`;
+        ctx.fillRect(Math.random()*canvas.width, Math.random()*canvas.height, 2,2);
+    }
 
-  // build resulting matrix from strips' center 3 cells
-  const visible = [[],[],[]];
-  for(let r=0;r<3;r++){
-    const cells = Array.from(strips[r].children);
-    // find the 3 centered indices (we set at 11,12,13)
-    const top = cells[11] ? cells[11].innerText : cells[0].innerText;
-    const mid = cells[12] ? cells[12].innerText : cells[1].innerText;
-    const bot = cells[13] ? cells[13].innerText : cells[2].innerText;
-    visible[0][r] = top;
-    visible[1][r] = mid;
-    visible[2][r] = bot;
-  }
-
-  // evaluate
-  const res = evaluate(visible);
-  if(res.win){
-    const winAmount = bet * res.multiplier;
-    balance += winAmount;
-    localStorage.setItem('ft_balance', balance);
-    resultEl.innerText = `GANHOU! ${res.symbol} • +R$ ${formatNum(winAmount)}`;
-    updateUI();
-    // confetti
-    burstConfetti();
-  } else {
-    resultEl.innerText = `Sem vitória — tente novamente`;
-    updateUI();
-  }
-
-  isSpinning = false;
-  // small cleanup: rebuild strips for next spin in background
-  strips.forEach(s=>buildStrip(s));
+    if(gameOver){
+        ctx.fillStyle = 'red';
+        ctx.font = '80px Arial';
+        ctx.fillText('GAME OVER', canvas.width/2-250, canvas.height/2);
+    }
 }
 
-// confetti (simple)
-function burstConfetti(){
-  const w = confettiCanvas.width = window.innerWidth;
-  const h = confettiCanvas.height = window.innerHeight;
-  const ctx = confettiCanvas.getContext('2d');
-  const pieces = [];
-  for(let i=0;i<120;i++){
-    pieces.push({
-      x: Math.random()*w,
-      y: -10 - Math.random()*h/2,
-      vx: (Math.random()-0.5)*6,
-      vy: 2+Math.random()*6,
-      r: 2+Math.random()*6,
-      color: ['#FF6B6B','#FFD166','#FFB86B','#8CE99A','#74C0FC'][Math.floor(Math.random()*5)]
-    });
-  }
-  let t=0;
-  function loop(){
-    ctx.clearRect(0,0,w,h);
-    pieces.forEach(p=>{
-      p.x += p.vx; p.y += p.vy; p.vy += 0.12;
-      ctx.fillStyle = p.color;
-      ctx.beginPath(); ctx.ellipse(p.x,p.y,p.r,p.r,0,0,Math.PI*2); ctx.fill();
-    });
-    t++;
-    if(t<120) requestAnimationFrame(loop);
-    else ctx.clearRect(0,0,w,h);
-  }
-  loop();
+// Loop principal
+function loop() {
+    update();
+    draw();
+    requestAnimationFrame(loop);
 }
 
-// auto-play safety
-let autoRunning = false;
-async function autoPlay(n){
-  if(autoRunning) return;
-  autoRunning = true;
-  for(let i=0;i<n;i++){
-    if(balance < bet) break;
-    await spin();
-    await new Promise(r=>setTimeout(r,600));
-  }
-  autoRunning = false;
-  autoBtn.innerText = 'Auto (x5)';
-}
-autoBtn.addEventListener('click', ()=> {
-  if(isSpinning) return;
-  autoPlay(5);
-});
-
-// save balance on unload
-window.addEventListener('beforeunload', ()=> localStorage.setItem('ft_balance', balance));
-
-// init
-updateUI();
+loop();
 </script>
 </body>
 </html>
