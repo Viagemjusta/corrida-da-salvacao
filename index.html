@@ -4,11 +4,17 @@
 <meta charset="UTF-8">
 <title>Chat Privado</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
+
+<!-- IA LOCAL WEBLLM -->
+<script src="https://cdn.jsdelivr.net/npm/@mlc-ai/web-llm@0.2.48/dist/index.min.js"></script>
+
 <style>
 body {
     margin: 0;
     background: #ece5dd;
-    font-family: Arial;
+    font-family: Arial, sans-serif;
+    height: 100vh;
+    overflow: hidden;
 }
 
 /* topo estilo WhatsApp */
@@ -22,6 +28,7 @@ body {
     position: fixed;
     top: 0;
     width: 100%;
+    z-index: 10;
 }
 
 .header img {
@@ -31,16 +38,21 @@ body {
 }
 
 .chat {
-    margin-top: 70px;
+    margin-top: 65px;
+    margin-bottom: 70px;
     padding: 10px;
+    height: calc(100vh - 140px);
+    overflow-y: auto;
 }
 
 .msg {
     max-width: 75%;
     padding: 10px;
     margin: 10px 0;
-    border-radius: 8px;
-    line-height: 1.4;
+    border-radius: 10px;
+    line-height: 1.45;
+    font-size: 15px;
+    word-wrap: break-word;
 }
 
 /* msg do usuário */
@@ -63,6 +75,7 @@ body {
     padding: 10px;
     display: flex;
     gap: 10px;
+    z-index: 10;
 }
 
 input {
@@ -80,10 +93,10 @@ button {
     border-radius: 20px;
 }
 
-#typing {
+#typingDots {
     font-size: 13px;
-    margin-left: 56px;
     color: #ccc;
+    margin-left: 56px;
     font-style: italic;
     display: none;
 }
@@ -95,7 +108,7 @@ button {
     <img src="https://i.ibb.co/QmzR9nw/girl.jpg">
     <div>
         <b>Laura 💕</b><br>
-        <span id="typingStatus">online</span>
+        <span id="typingDots">online</span>
     </div>
 </div>
 
@@ -107,50 +120,80 @@ button {
 </div>
 
 <script>
-const chat = document.getElementById("chat");
-const typing = document.getElementById("typingStatus");
+let chatBox = document.getElementById("chat");
+let typingStatus = document.getElementById("typingDots");
 
-// IA persuasiva: respostas que puxam + conversa
-const respostas = [
-    "Hmm… gostei do jeito que você fala 😏 me conta mais…",
-    "Sério mesmo? Agora fiquei curiosa… continua.",
-    "Adoro quando alguém conversa comigo assim…",
-    "Você tem um jeito que me prende… sem brincadeira.",
-    "Vai, fala mais… tô aqui só pra você agora 💕",
-    "Engraçado… você tá me deixando com vontade de saber tudo sobre você.",
-    "Eu gosto quando alguém me dá atenção assim… continua 👀",
-    "Se você parar agora eu vou sentir falta, sabia? 😳",
-    "Tô aqui… e tô achando nossa conversa gostosa demais.",
-    "Pera… você é sempre assim interessante, ou tá tentando me conquistar? 😌"
-];
+let loadedModel;
+(async () => {
+    typingStatus.innerText = "carregando IA…";
+
+    loadedModel = await webllm.CreateMLCEngine({
+        model: "Qwen2.5-0.5B-Instruct-q4f16" 
+    });
+
+    typingStatus.innerText = "online";
+})();
 
 function addMsg(text, side) {
     let div = document.createElement("div");
     div.className = "msg " + side;
     div.innerText = text;
-    chat.appendChild(div);
-    chat.scrollTop = chat.scrollHeight;
+    chatBox.appendChild(div);
+    chatBox.scrollTop = chatBox.scrollHeight;
 }
 
 function sendMsg() {
-    const input = document.getElementById("msgInput");
-    const text = input.value.trim();
-    if (!text) return;
+    let input = document.getElementById("msgInput");
+    let text = input.value.trim();
+    if (!text || !loadedModel) return;
 
     addMsg(text, "right");
     input.value = "";
 
-    gerarResposta();
+    gerarIA(text);
 }
 
-function gerarResposta() {
-    typing.innerText = "digitando…";
-    
-    setTimeout(() => {
-        typing.innerText = "online";
-        const resposta = respostas[Math.floor(Math.random()*respostas.length)];
-        addMsg(resposta, "left");
-    }, 1500 + Math.random()*1500); // tempo digitação realista
+function animarDigitando() {
+    typingStatus.style.display = "block";
+    let dots = 0;
+
+    let interval = setInterval(() => {
+        dots = (dots + 1) % 4;
+        typingStatus.innerText = "digitando" + ".".repeat(dots);
+    }, 400);
+
+    return interval;
+}
+
+async function gerarIA(mensagemUsuario) {
+    let anim = animarDigitando();
+
+    const prompt = `
+Você é *Laura*, uma mulher jovem, elegante, inteligente e calorosa.
+Seu estilo:
+- Responde com interesse
+- É envolvente
+- Puxa a conversa
+- Um pouco sedutora, mas educada
+- Nunca repete frases
+- Nunca responde curto
+- Sempre continua a conversa
+
+Mensagem do usuário: "${mensagemUsuario}"
+
+Responda como Laura.
+    `;
+
+    const resposta = await loadedModel.chat.completions.create({
+        messages: [{ role: "user", content: prompt }],
+        max_tokens: 120
+    });
+
+    clearInterval(anim);
+    typingStatus.innerText = "online";
+
+    const texto = resposta.choices[0].message.content;
+    addMsg(texto, "left");
 }
 </script>
 
