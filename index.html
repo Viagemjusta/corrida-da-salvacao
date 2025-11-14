@@ -2,128 +2,155 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Chat Privado 🔥</title>
-
+<title>Chat Privado</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
-    body {
-        background: linear-gradient(135deg, #ff4d6d, #ff6b98);
-        margin: 0;
-        font-family: Arial;
-        color: white;
-        padding: 20px;
-    }
+body {
+    margin: 0;
+    background: #ece5dd;
+    font-family: Arial;
+}
 
-    .chat-box {
-        background: #ffffffdd;
-        color: #222;
-        max-width: 450px;
-        margin: auto;
-        padding: 20px;
-        border-radius: 20px;
-        box-shadow: 0 10px 25px rgba(0,0,0,0.2);
-        animation: fade .6s ease;
-    }
+/* topo estilo WhatsApp */
+.header {
+    background: #075E54;
+    color: white;
+    padding: 10px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    position: fixed;
+    top: 0;
+    width: 100%;
+}
 
-    @keyframes fade {
-        from { opacity: 0; transform: translateY(20px); }
-        to { opacity: 1; transform: translateY(0); }
-    }
+.header img {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+}
 
-    .msg {
-        background: #ffe3ec;
-        padding: 12px;
-        border-radius: 15px;
-        margin: 10px 0;
-        display: inline-block;
-        max-width: 80%;
-    }
+.chat {
+    margin-top: 70px;
+    padding: 10px;
+}
 
-    .bot {
-        background: #fad2e1;
-        align-self: flex-start;
-    }
+.msg {
+    max-width: 75%;
+    padding: 10px;
+    margin: 10px 0;
+    border-radius: 8px;
+    line-height: 1.4;
+}
 
-    .user {
-        background: #ffc2d1;
-        align-self: flex-end;
-        margin-left: auto;
-    }
+/* msg do usuário */
+.right {
+    background: #DCF8C6;
+    margin-left: auto;
+}
 
-    #input-area {
-        display: flex;
-        margin-top: 20px;
-    }
+/* msg da "mulher" */
+.left {
+    background: white;
+}
 
-    input {
-        flex: 1;
-        padding: 10px;
-        border-radius: 10px;
-        border: none;
-        font-size: 16px;
-    }
+/* barra enviar */
+.bottom {
+    position: fixed;
+    bottom: 0;
+    width: 100%;
+    background: #fff;
+    padding: 10px;
+    display: flex;
+    gap: 10px;
+}
 
-    button {
-        margin-left: 10px;
-        padding: 10px 15px;
-        background: #ff477e;
-        border: none;
-        border-radius: 10px;
-        color: white;
-        cursor: pointer;
-        font-size: 16px;
-        transition: .2s;
-    }
+input {
+    flex: 1;
+    padding: 12px;
+    border-radius: 20px;
+    border: 1px solid #ccc;
+}
 
-    button:hover {
-        background: #ff2d66;
-    }
+button {
+    padding: 12px 16px;
+    background: #075E54;
+    color: #fff;
+    border: none;
+    border-radius: 20px;
+}
+
+#typing {
+    font-size: 13px;
+    margin-left: 56px;
+    color: #ccc;
+    font-style: italic;
+    display: none;
+}
 </style>
 </head>
-
 <body>
 
-<div class="chat-box" id="chat">
-    <div class="msg bot">👄 Oi… tava esperando você entrar aqui…</div>
+<div class="header">
+    <img src="https://i.ibb.co/QmzR9nw/girl.jpg">
+    <div>
+        <b>Laura 💕</b><br>
+        <span id="typingStatus">online</span>
+    </div>
 </div>
 
-<div id="input-area">
-    <input id="userInput" placeholder="Digite algo..." autocomplete="off">
-    <button onclick="send()">Enviar</button>
+<div class="chat" id="chat"></div>
+
+<div class="bottom">
+    <input id="msgInput" placeholder="Digite uma mensagem…">
+    <button onclick="sendMsg()">Enviar</button>
 </div>
 
 <script>
-let respostas = [
-    "😏 Hmmm… gostei do jeito que você fala.",
-    "🔥 Pode continuar… tô prestando atenção.",
-    "💋 Você sempre fala assim ou só quando está interessado?",
-    "😉 Adoro quando você digita desse jeito.",
-    "😳 Continua… tô ficando curiosa.",
-    "✨ Você é diferente… dá pra sentir.",
-    "👀 Não para agora não…"
+const chat = document.getElementById("chat");
+const typing = document.getElementById("typingStatus");
+
+// IA persuasiva: respostas que puxam + conversa
+const respostas = [
+    "Hmm… gostei do jeito que você fala 😏 me conta mais…",
+    "Sério mesmo? Agora fiquei curiosa… continua.",
+    "Adoro quando alguém conversa comigo assim…",
+    "Você tem um jeito que me prende… sem brincadeira.",
+    "Vai, fala mais… tô aqui só pra você agora 💕",
+    "Engraçado… você tá me deixando com vontade de saber tudo sobre você.",
+    "Eu gosto quando alguém me dá atenção assim… continua 👀",
+    "Se você parar agora eu vou sentir falta, sabia? 😳",
+    "Tô aqui… e tô achando nossa conversa gostosa demais.",
+    "Pera… você é sempre assim interessante, ou tá tentando me conquistar? 😌"
 ];
 
-function send() {
-    let input = document.getElementById("userInput");
-    let text = input.value.trim();
-    if (text === "") return;
-
-    addMessage(text, "user");
-    input.value = "";
-
-    setTimeout(() => {
-        let resposta = respostas[Math.floor(Math.random() * respostas.length)];
-        addMessage(resposta, "bot");
-    }, 700);
-}
-
-function addMessage(text, type) {
-    let chat = document.getElementById("chat");
+function addMsg(text, side) {
     let div = document.createElement("div");
-    div.className = "msg " + type;
-    div.textContent = text;
+    div.className = "msg " + side;
+    div.innerText = text;
     chat.appendChild(div);
     chat.scrollTop = chat.scrollHeight;
+}
+
+function sendMsg() {
+    const input = document.getElementById("msgInput");
+    const text = input.value.trim();
+    if (!text) return;
+
+    addMsg(text, "right");
+    input.value = "";
+
+    gerarResposta();
+}
+
+function gerarResposta() {
+    typing.innerText = "digitando…";
+    
+    setTimeout(() => {
+        typing.innerText = "online";
+        const resposta = respostas[Math.floor(Math.random()*respostas.length)];
+        addMsg(resposta, "left");
+    }, 1500 + Math.random()*1500); // tempo digitação realista
 }
 </script>
 
