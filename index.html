@@ -2,16 +2,15 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<title>Meteoros Insanos</title>
+<title>Naves Espaciais</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
     body {
         margin: 0;
-        background: radial-gradient(#000010, #000000);
+        background: radial-gradient(#000015, #000000);
         overflow: hidden;
         touch-action: none;
     }
-
     canvas {
         position: fixed;
         top: 0;
@@ -34,46 +33,63 @@ function resize() {
 resize();
 window.onresize = resize;
 
-let meteors = [];
+let ships = [];
 let explosions = [];
 
-// 🔥 textura interna do meteoro — faz parecer rocha de fogo
-function drawMeteorTexture(size) {
+// 🎨 DESENHA UMA NAVE ESPACIAL GIRANDO (gerada via canvas)
+function generateShip(size) {
     const off = document.createElement("canvas");
     off.width = size * 2;
     off.height = size * 2;
     const octx = off.getContext("2d");
 
-    const grad = octx.createRadialGradient(size, size, size * 0.2, size, size, size);
-    grad.addColorStop(0, "#ffddaa");
-    grad.addColorStop(0.4, "#cc6622");
-    grad.addColorStop(1, "#331100");
+    // corpo
+    octx.fillStyle = "#888";
+    octx.beginPath();
+    octx.ellipse(size, size, size * 0.7, size * 1.1, 0, 0, Math.PI * 2);
+    octx.fill();
+
+    // cabine azul
+    const grad = octx.createRadialGradient(size, size * 0.8, 5, size, size * 0.8, size * 0.5);
+    grad.addColorStop(0, "#aeeaff");
+    grad.addColorStop(1, "#003355");
 
     octx.fillStyle = grad;
     octx.beginPath();
-    octx.arc(size, size, size, 0, Math.PI * 2);
+    octx.ellipse(size, size * 0.8, size * 0.4, size * 0.3, 0, 0, Math.PI * 2);
     octx.fill();
+
+    // luzes da nave
+    for (let i = 0; i < 6; i++) {
+        const angle = (i / 6) * Math.PI * 2;
+        const lx = size + Math.cos(angle) * size * 0.7;
+        const ly = size + Math.sin(angle) * size * 0.7;
+        octx.fillStyle = ["#ff3333", "#33ff33", "#ffff33"][i % 3];
+        octx.beginPath();
+        octx.arc(lx, ly, size * 0.12, 0, Math.PI * 2);
+        octx.fill();
+    }
 
     return off;
 }
 
-function spawnMeteor() {
-    const size = 30 + Math.random() * 40;
-    meteors.push({
+function spawnShip() {
+    const size = 30 + Math.random() * 35;
+    ships.push({
         x: Math.random() * canvas.width,
         y: -80,
         size,
         speed: 2 + Math.random() * 4,
-        angle: Math.random() * 0.3 - 0.15,
+        angle: Math.random() * 0.4 - 0.2,
         rot: Math.random() * Math.PI,
         rotSpeed: Math.random() * 0.1 - 0.05,
-        texture: drawMeteorTexture(size)
+        ship: generateShip(size)
     });
 }
 
-setInterval(spawnMeteor, 600);
+setInterval(spawnShip, 600);
 
-// 💥 explosão insana
+// 💥 explosão aprimorada
 function explode(x, y) {
     for (let i = 0; i < 40; i++) {
         explosions.push({
@@ -85,73 +101,73 @@ function explode(x, y) {
         });
     }
 
-    if (navigator.vibrate) navigator.vibrate(120);
+    if (navigator.vibrate) navigator.vibrate(150);
+}
+
+// toque/clique
+function checkHit(x, y) {
+    for (let i = ships.length - 1; i >= 0; i--) {
+        const s = ships[i];
+        const dx = x - s.x;
+        const dy = y - s.y;
+        if (Math.sqrt(dx * dx + dy * dy) < s.size) {
+            explode(s.x, s.y);
+            ships.splice(i, 1);
+            break;
+        }
+    }
 }
 
 canvas.addEventListener("touchstart", e => {
     const t = e.touches[0];
     checkHit(t.clientX, t.clientY);
 });
+
 canvas.addEventListener("mousedown", e => {
     checkHit(e.clientX, e.clientY);
 });
 
-function checkHit(x, y) {
-    for (let i = meteors.length - 1; i >= 0; i--) {
-        const m = meteors[i];
-        const dx = x - m.x;
-        const dy = y - m.y;
-        if (Math.sqrt(dx*dx + dy*dy) < m.size) {
-            explode(m.x, m.y);
-            meteors.splice(i, 1);
-            break;
-        }
-    }
-}
-
-// 🔥 Rastro de fogo realista
-function drawFireTail(m) {
-    const tailLen = m.size * 3;
+// Rastro de luz futurista
+function drawLightTrail(s) {
+    const tail = s.size * 4;
 
     const grad = ctx.createLinearGradient(
-        m.x, m.y,
-        m.x - m.angle * tailLen,
-        m.y - tailLen
+        s.x, s.y,
+        s.x - s.angle * tail,
+        s.y - tail
     );
 
-    grad.addColorStop(0, "rgba(255,150,50,0.8)");
-    grad.addColorStop(0.4, "rgba(255,80,10,0.4)");
+    grad.addColorStop(0, "rgba(0,200,255,0.7)");
+    grad.addColorStop(0.5, "rgba(0,80,255,0.3)");
     grad.addColorStop(1, "rgba(0,0,0,0)");
 
     ctx.fillStyle = grad;
-
     ctx.beginPath();
-    ctx.moveTo(m.x, m.y);
-    ctx.lineTo(m.x - m.angle * tailLen + m.size, m.y - tailLen);
-    ctx.lineTo(m.x - m.angle * tailLen - m.size, m.y - tailLen);
+    ctx.moveTo(s.x, s.y);
+    ctx.lineTo(s.x - s.angle * tail + s.size, s.y - tail);
+    ctx.lineTo(s.x - s.angle * tail - s.size, s.y - tail);
     ctx.closePath();
     ctx.fill();
 }
 
-// meteoro 3D fake + textura
-function drawMeteor(m) {
-    drawFireTail(m);
+// desenha nave
+function drawShip(s) {
+    drawLightTrail(s);
 
     ctx.save();
-    ctx.translate(m.x, m.y);
-    ctx.rotate(m.rot);
-
+    ctx.translate(s.x, s.y);
+    ctx.rotate(s.rot);
     ctx.drawImage(
-        m.texture,
-        -m.size,
-        -m.size,
-        m.size * 2,
-        m.size * 2
+        s.ship,
+        -s.size,
+        -s.size,
+        s.size * 2,
+        s.size * 2
     );
-
     ctx.restore();
 }
 
+// explosão
 function drawExplosion(e) {
     ctx.globalAlpha = e.alpha;
     ctx.fillStyle = "orange";
@@ -164,21 +180,22 @@ function drawExplosion(e) {
 function loop() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    for (let m of meteors) {
-        m.y += m.speed;
-        m.x += m.angle * 4;
-        m.rot += m.rotSpeed;
-        drawMeteor(m);
-    }
+    ships.forEach(s => {
+        s.y += s.speed;
+        s.x += s.angle * 4;
+        s.rot += s.rotSpeed;
 
-    meteors = meteors.filter(m => m.y < canvas.height + 100);
+        drawShip(s);
+    });
 
-    for (let e of explosions) {
+    ships = ships.filter(s => s.y < canvas.height + 100);
+
+    explosions.forEach(e => {
         e.x += e.dx;
         e.y += e.dy;
         e.alpha -= 0.03;
         drawExplosion(e);
-    }
+    });
 
     explosions = explosions.filter(e => e.alpha > 0);
 
