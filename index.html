@@ -20,7 +20,7 @@
 
 <script>
 // =======================
-// CONFIGURAÇÃO BÁSICA
+// CONFIG BÁSICA
 // =======================
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
@@ -28,39 +28,22 @@ const ctx = canvas.getContext("2d");
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
-let naveX = canvas.width / 2;
-let naveY = canvas.height - 200;
+let naveX = canvas.width / 2 - 90;
+let naveY = canvas.height - 400;
 
-let tocando = false;
-
-// ======================================
-// SUA IMAGEM REAL EM BASE64 (COMPLETA)
-// ======================================
+// =======================
+// SUA IMAGEM REAL (BASE64)
+// =======================
 const naveImg = new Image();
-naveImg.src = "data:image/jpeg;base64,oahURx/dWhiVy1dFPVGHtXuySZkMgZeldFpAQxbslcEdBXMyGNwADk113hmUFvs6..."
-+ "zY0B5wBXzL4cMkXiG9tz67/yr6K0mffaLIMjcBX73k8+V6n41mkLxsdKiqTjpU42" 
-+ "rwtUoyx4z0pWlxnfxivWwUpSxF5bHgzhFRVjiPitNDH4GvVf/nmc1+BHi3TYH1W/..."
-+ "hc5Oa/DD9aHV5f8AFTX49D8K3VxI23CH+VeoV8B/t3/EBPBHwm1O+37GSIn9K1ow"
-+ "5pJEzlZNn87/AMfPGdv4k+K2rQQOGCSjOP8Aer3rwBHnRk78D+Vflh4G+IFx448f..."
-+ "tXP/ADzX+VdRX4dLc/WQr8K/+Czxgh+COp3VwdqpFnOK/dSvwi/4LN6jbxfB7Ura"
-+ "eITjyj8h78V6mSO2Kg/M4cyV8PNeR/HD+yN4zsY/iB4iudMH2iTZt2Hiv3b/AGe7..."
-+ "1eOJWMssjY2njFf6EP8AwQT+Gh0HwtaarMnzNH1PuK/hF/ZP8DXeu/EGxtEG4ySq"
-+ "MD3P0r/Ta/4JP/B2TwZ8KdPuJo/LJTuPYV9fxhnE3goYXoebhsDGNZ1luz9rLcbY..."
-+ "KKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigD/2Q==";
+naveImg.src = "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAASABIAAD/4QBYRXhpZgAATU0AKgAAAAgAAgESAAMAAAADAAAAhgAAAAEAAAMAAAChAAAAAQAAAgMAAAEsAAAD6AAAABAAAGmHBAABAAAAAQAAAKmHAgAEAAAAAQAAAL4AAAAAAAAASAAAAAEAAABIAAAAAf/Y/7QAMQUGBwgHBw4ICA4OFBESFBQUGBwsLCQdHBwcHB0lJSUlJSUlJSUlJSUlJSUlJSUlJSUlJSUlJSUlJSUlJSUlJSX/wAALCAAqACoBAREA/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREA..."
 
 // ================
-// MOVIMENTO TOUCH
+// TOUCH CONTROLS
 // ================
-canvas.addEventListener("touchstart", e => {
-    tocando = true;
-});
-canvas.addEventListener("touchend", e => {
-    tocando = false;
-});
 canvas.addEventListener("touchmove", e => {
     let t = e.touches[0];
     naveX = t.clientX - 90;
-    naveY = t.clientY - 150;
+    naveY = t.clientY - 170;
 });
 
 // ================
@@ -69,7 +52,7 @@ canvas.addEventListener("touchmove", e => {
 function loop() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // fundo
+    // fundo preto
     ctx.fillStyle = "black";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -81,5 +64,6 @@ function loop() {
 
 loop();
 </script>
+
 </body>
 </html>
