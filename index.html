@@ -2,12 +2,12 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<title>Meteoros Explosivos</title>
+<title>Meteoros Insanos</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
     body {
         margin: 0;
-        background: radial-gradient(#000015, #000000);
+        background: radial-gradient(#000010, #000000);
         overflow: hidden;
         touch-action: none;
     }
@@ -37,55 +37,71 @@ window.onresize = resize;
 let meteors = [];
 let explosions = [];
 
+// 🔥 textura interna do meteoro — faz parecer rocha de fogo
+function drawMeteorTexture(size) {
+    const off = document.createElement("canvas");
+    off.width = size * 2;
+    off.height = size * 2;
+    const octx = off.getContext("2d");
+
+    const grad = octx.createRadialGradient(size, size, size * 0.2, size, size, size);
+    grad.addColorStop(0, "#ffddaa");
+    grad.addColorStop(0.4, "#cc6622");
+    grad.addColorStop(1, "#331100");
+
+    octx.fillStyle = grad;
+    octx.beginPath();
+    octx.arc(size, size, size, 0, Math.PI * 2);
+    octx.fill();
+
+    return off;
+}
+
 function spawnMeteor() {
+    const size = 30 + Math.random() * 40;
     meteors.push({
         x: Math.random() * canvas.width,
-        y: -50,
-        size: 30 + Math.random() * 40,
-        speed: 2 + Math.random() * 3,
-        angle: Math.random() * 0.3 - 0.15
+        y: -80,
+        size,
+        speed: 2 + Math.random() * 4,
+        angle: Math.random() * 0.3 - 0.15,
+        rot: Math.random() * Math.PI,
+        rotSpeed: Math.random() * 0.1 - 0.05,
+        texture: drawMeteorTexture(size)
     });
 }
 
 setInterval(spawnMeteor, 600);
 
+// 💥 explosão insana
 function explode(x, y) {
-    for (let i = 0; i < 20; i++) {
+    for (let i = 0; i < 40; i++) {
         explosions.push({
-            x: x,
-            y: y,
-            dx: (Math.random() - 0.5) * 6,
-            dy: (Math.random() - 0.5) * 6,
-            size: 2 + Math.random() * 4,
+            x, y,
+            dx: (Math.random() - 0.5) * 10,
+            dy: (Math.random() - 0.5) * 10,
+            size: 4 + Math.random() * 6,
             alpha: 1
         });
     }
 
-    if (navigator.vibrate) {
-        navigator.vibrate(100);
-    }
+    if (navigator.vibrate) navigator.vibrate(120);
 }
 
-canvas.addEventListener("touchstart", touchHandler);
-canvas.addEventListener("mousedown", clickHandler);
-
-function touchHandler(e) {
-    const touch = e.touches[0];
-    checkHit(touch.clientX, touch.clientY);
-}
-
-function clickHandler(e) {
+canvas.addEventListener("touchstart", e => {
+    const t = e.touches[0];
+    checkHit(t.clientX, t.clientY);
+});
+canvas.addEventListener("mousedown", e => {
     checkHit(e.clientX, e.clientY);
-}
+});
 
 function checkHit(x, y) {
     for (let i = meteors.length - 1; i >= 0; i--) {
         const m = meteors[i];
         const dx = x - m.x;
         const dy = y - m.y;
-        const dist = Math.sqrt(dx*dx + dy*dy);
-
-        if (dist < m.size) {
+        if (Math.sqrt(dx*dx + dy*dy) < m.size) {
             explode(m.x, m.y);
             meteors.splice(i, 1);
             break;
@@ -93,19 +109,45 @@ function checkHit(x, y) {
     }
 }
 
-function drawMeteor(m) {
-    ctx.save();
-    ctx.translate(m.x, m.y);
-    ctx.rotate(m.angle);
+// 🔥 Rastro de fogo realista
+function drawFireTail(m) {
+    const tailLen = m.size * 3;
 
-    const grad = ctx.createRadialGradient(0, 0, 5, 0, 0, m.size);
-    grad.addColorStop(0, "#ffaa88");
-    grad.addColorStop(1, "#662200");
+    const grad = ctx.createLinearGradient(
+        m.x, m.y,
+        m.x - m.angle * tailLen,
+        m.y - tailLen
+    );
+
+    grad.addColorStop(0, "rgba(255,150,50,0.8)");
+    grad.addColorStop(0.4, "rgba(255,80,10,0.4)");
+    grad.addColorStop(1, "rgba(0,0,0,0)");
 
     ctx.fillStyle = grad;
+
     ctx.beginPath();
-    ctx.arc(0, 0, m.size, 0, Math.PI * 2);
+    ctx.moveTo(m.x, m.y);
+    ctx.lineTo(m.x - m.angle * tailLen + m.size, m.y - tailLen);
+    ctx.lineTo(m.x - m.angle * tailLen - m.size, m.y - tailLen);
+    ctx.closePath();
     ctx.fill();
+}
+
+// meteoro 3D fake + textura
+function drawMeteor(m) {
+    drawFireTail(m);
+
+    ctx.save();
+    ctx.translate(m.x, m.y);
+    ctx.rotate(m.rot);
+
+    ctx.drawImage(
+        m.texture,
+        -m.size,
+        -m.size,
+        m.size * 2,
+        m.size * 2
+    );
 
     ctx.restore();
 }
@@ -124,11 +166,12 @@ function loop() {
 
     for (let m of meteors) {
         m.y += m.speed;
-        m.x += m.angle * 5;
+        m.x += m.angle * 4;
+        m.rot += m.rotSpeed;
         drawMeteor(m);
     }
 
-    meteors = meteors.filter(m => m.y < canvas.height + 50);
+    meteors = meteors.filter(m => m.y < canvas.height + 100);
 
     for (let e of explosions) {
         e.x += e.dx;
