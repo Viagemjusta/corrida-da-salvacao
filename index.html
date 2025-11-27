@@ -1,0 +1,376 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Loucura Lab — site bem louco</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0b0710;
+    --glass: rgba(255,255,255,0.06);
+    --accent1: #ff3cac;
+    --accent2: #784ba0;
+    --accent3: #2b86c5;
+    --panel: rgba(255,255,255,0.06);
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0;background:var(--bg);font-family:Nunito,system-ui,Segoe UI,Roboto;}
+  canvas{display:block;position:fixed;inset:0;z-index:0}
+  .ui{
+    position:fixed;z-index:10;right:20px;top:20px;width:320px;
+    backdrop-filter: blur(6px) saturate(1.2); background:var(--panel);
+    border-radius:14px;padding:14px;color:#fff;border:1px solid rgba(255,255,255,0.06);
+    box-shadow:0 6px 30px rgba(0,0,0,0.6);
+  }
+  .brand{font-weight:900;font-size:18px;letter-spacing:0.6px;display:flex;align-items:center;gap:10px}
+  .brand .dot{width:14px;height:14px;border-radius:50%;background:linear-gradient(45deg,var(--accent1),var(--accent2));box-shadow:0 6px 20px rgba(0,0,0,0.6)}
+  .controls{margin-top:12px;display:grid;gap:8px}
+  .btn{
+    background:linear-gradient(90deg,var(--accent1),var(--accent2));
+    border:none;color:#fff;padding:10px 12px;border-radius:10px;font-weight:700;cursor:pointer;
+    box-shadow:0 6px 20px rgba(0,0,0,0.4);transition:transform .12s ease;
+  }
+  .btn:active{transform:translateY(2px)}
+  .small{padding:8px 10px;border-radius:8px;font-size:14px}
+  .row{display:flex;gap:8px}
+  .slider{width:100%}
+  .muted{opacity:0.85;font-size:13px;color:#dcdde1;margin-top:8px}
+  .footer{margin-top:10px;font-size:12px;color:rgba(255,255,255,0.7)}
+  .glitch{
+    display:inline-block; position:relative;
+    color:white;font-weight:900;margin-left:6px;
+    text-shadow: 0 0 18px rgba(255,255,255,0.08);
+  }
+  /* quick mobile adapt */
+  @media(max-width:420px){
+    .ui{left:12px;right:12px;top:auto;bottom:12px;width:auto;padding:10px}
+  }
+  /* Surprise overlay */
+  .overlay{
+    position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;
+    pointer-events:none;mix-blend-mode:screen;
+  }
+  .badge{
+    pointer-events:auto;padding:18px 22px;border-radius:16px;background:linear-gradient(90deg,var(--accent3),var(--accent1));
+    color:#fff;font-weight:900;font-size:20px;box-shadow:0 12px 60px rgba(0,0,0,0.6);
+  }
+</style>
+</head>
+<body>
+
+<canvas id="c"></canvas>
+
+<div class="ui" id="panel">
+  <div class="brand"><div class="dot" id="dot"></div>LOUCURA LAB <span class="glitch" id="glitchTxt">β</span></div>
+  <div class="controls">
+    <div class="row">
+      <button class="btn small" id="surprise">SURPRESA</button>
+      <button class="btn small" id="toggleSound">Sound: ON</button>
+    </div>
+    <div class="row">
+      <input id="particleRange" class="slider" type="range" min="10" max="300" value="120">
+    </div>
+    <div class="row">
+      <button class="btn small" id="palette">Mudar paleta</button>
+      <button class="btn small" id="downloadPNG">Download PNG</button>
+    </div>
+    <div class="muted">Clique na tela para explodir partículas. Arraste para criar trilhas. Aperte SURPRESA para pirar.</div>
+    <div class="footer">Feito para chamar atenção — compartilha se curtir 😉</div>
+  </div>
+</div>
+
+<div id="overlayRoot" class="overlay" aria-hidden="true" style="display:none">
+  <div class="badge" id="badge">LOADING...</div>
+</div>
+
+<script>
+/* === Loucura Lab — single-file app ===
+   - Canvas particle system with metaball-like blobs
+   - Glitchy UI + palette switch
+   - WebAudio simple synth for interactive sound
+   - Surprise mode: visual glitch + audio burst + export
+*/
+
+/* Utilities */
+const rand = (a,b)=>(Math.random()*(b-a)+a);
+const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
+
+/* Canvas setup */
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d', { alpha: true });
+let W=canvas.width = innerWidth;
+let H=canvas.height = innerHeight;
+addEventListener('resize',()=>{ W=canvas.width=innerWidth; H=canvas.height=innerHeight; });
+
+/* State */
+let particles = [];
+let mouse = {x:W/2,y:H/2,down:false};
+let particleCount = Number(document.getElementById('particleRange').value);
+let paletteIndex = 0;
+const palettes = [
+  ['#ff3cac','#784ba0','#2b86c5'],
+  ['#21d4fd','#b721ff','#ff9a9e'],
+  ['#00b09b','#96c93d','#ff6b6b'],
+  ['#ffd89b','#19547b','#ff7b00']
+];
+
+/* Audio setup (simple playable synth) */
+let audioCtx=null;
+function ensureAudio(){
+  if(!audioCtx){
+    audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+  }
+}
+function playBurst(freq=220, duration=0.35){
+  ensureAudio();
+  const o = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  o.type = 'sawtooth';
+  o.frequency.value = freq;
+  g.gain.value = 0.0001;
+  o.connect(g); g.connect(audioCtx.destination);
+  o.start();
+  g.gain.exponentialRampToValueAtTime(0.15, audioCtx.currentTime + 0.02);
+  g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration);
+  o.stop(audioCtx.currentTime + duration + 0.02);
+}
+
+/* Particle class */
+class P {
+  constructor(x,y){
+    this.x = x; this.y = y;
+    this.vx = rand(-1.2,1.2); this.vy = rand(-1.2,1.2);
+    this.size = rand(8,34);
+    this.life = rand(2,6); this.age = 0;
+    this.h = Math.random();
+    this.color = palettes[paletteIndex][Math.floor(Math.random()*3)];
+    this.friction = rand(0.985,0.995);
+  }
+  step(dt){
+    this.vx *= this.friction; this.vy *= this.friction;
+    this.vy += 0.02; // gravity-ish
+    this.x += this.vx*dt; this.y += this.vy*dt;
+    this.age += dt;
+  }
+  alive(){ return this.age < this.life && this.size>0.5; }
+  draw(ctx){
+    const t = this.age / this.life;
+    const a = 1 - t;
+    const g = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.size*2);
+    g.addColorStop(0, hexToRgba(this.color, 0.95*a));
+    g.addColorStop(0.5, hexToRgba('#fff', 0.08*a));
+    g.addColorStop(1, hexToRgba(this.color, 0*a));
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.size, 0, Math.PI*2);
+    ctx.fill();
+  }
+}
+
+/* Helpers */
+function hexToRgba(hex, a=1){
+  const h = hex.replace('#','');
+  const r = parseInt(h.substring(0,2),16);
+  const g = parseInt(h.substring(2,4),16);
+  const b = parseInt(h.substring(4,6),16);
+  return `rgba(${r},${g},${b},${a})`;
+}
+
+/* Populate initial cloud */
+for(let i=0;i<particleCount;i++){
+  particles.push(new P(rand(0,W), rand(0,H)));
+}
+
+/* Interaction */
+canvas.addEventListener('pointerdown',e=>{
+  mouse.down=true;
+  const r = rectPos(e);
+  spawnBurst(r.x, r.y, 30);
+  playBurst(rand(180,420), 0.25);
+});
+canvas.addEventListener('pointerup',e=>{ mouse.down=false; });
+canvas.addEventListener('pointermove',e=>{
+  const r = rectPos(e);
+  mouse.x=r.x; mouse.y=r.y;
+  if(mouse.down){
+    spawnTrail(r.x,r.y, 4);
+  }
+});
+function rectPos(e){
+  const rect = canvas.getBoundingClientRect();
+  return {x:(e.clientX-rect.left)*(canvas.width/rect.width), y:(e.clientY-rect.top)*(canvas.height/rect.height)};
+}
+function spawnBurst(x,y,count=20){
+  for(let i=0;i<count;i++){
+    const p = new P(x + rand(-20,20), y + rand(-20,20));
+    p.vx = rand(-6,6); p.vy = rand(-6,6); p.size = rand(6,36);
+    particles.push(p);
+  }
+}
+function spawnTrail(x,y,count=3){
+  for(let i=0;i<count;i++){
+    const p = new P(x + rand(-8,8), y + rand(-8,8));
+    p.vx = rand(-2,2); p.vy = rand(-2,2); p.size = rand(5,18);
+    particles.push(p);
+  }
+}
+
+/* Animation loop */
+let last = performance.now();
+let glitch = 0;
+function loop(t){
+  const dt = Math.min( (t - last) / 16.666, 4 ); last = t;
+  update(dt);
+  render();
+  requestAnimationFrame(loop);
+}
+function update(dt){
+  // spawn gentle ambient particles
+  if(particles.length < particleCount){
+    particles.push(new P(rand(0,W), rand(0,H)));
+  }
+  // step
+  for(let p of particles) p.step(dt);
+  // cull
+  particles = particles.filter(p=>p.alive());
+  // glitch decay
+  if(glitch>0) glitch = Math.max(0, glitch - 0.02*dt);
+}
+function render(){
+  // background gradient
+  ctx.clearRect(0,0,W,H);
+  const g = ctx.createLinearGradient(0,0,W,H);
+  const pal = palettes[paletteIndex];
+  g.addColorStop(0, hexToRgba(pal[0], 0.12*(1+Math.sin(performance.now()*0.001))));
+  g.addColorStop(0.5, hexToRgba(pal[1], 0.08));
+  g.addColorStop(1, hexToRgba(pal[2], 0.06));
+  ctx.fillStyle = g;
+  ctx.fillRect(0,0,W,H);
+
+  // draw particles
+  for(let p of particles) p.draw(ctx);
+
+  // subtle blur + scanlines for effect
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.globalAlpha = 0.06 * (1 + glitch);
+  ctx.fillStyle = '#fff';
+  for(let i=0;i<2;i++){
+    ctx.beginPath();
+    ctx.ellipse(W*0.5 + Math.sin(performance.now()*0.0007 + i)*W*0.08, H*0.5 + Math.cos(performance.now()*0.0009 + i)*H*0.04, W*0.6, H*0.7, 0, 0, Math.PI*2);
+    ctx.fill();
+  }
+  ctx.restore();
+
+  // optional glitch raster lines when glitch active
+  if(glitch > 0.02){
+    ctx.save();
+    const lines = Math.floor(10 + glitch*40);
+    for(let i=0;i<lines;i++){
+      const y = (i/lines)*H + Math.sin(i*0.3 + performance.now()*0.005)*8;
+      ctx.fillStyle = `rgba(255,255,255,${0.02*glitch})`;
+      ctx.fillRect(0, y, W, 1 + Math.sin(i + performance.now()*0.01)*3);
+    }
+    ctx.restore();
+  }
+}
+
+/* UI bindings */
+const surpriseBtn = document.getElementById('surprise');
+const toggleSoundBtn = document.getElementById('toggleSound');
+const particleRange = document.getElementById('particleRange');
+const paletteBtn = document.getElementById('palette');
+const downloadPNG = document.getElementById('downloadPNG');
+const dot = document.getElementById('dot');
+const glitchTxt = document.getElementById('glitchTxt');
+const overlay = document.getElementById('overlayRoot');
+const badge = document.getElementById('badge');
+
+let soundOn = true;
+toggleSoundBtn.addEventListener('click', ()=>{
+  soundOn = !soundOn;
+  toggleSoundBtn.textContent = `Sound: ${soundOn? 'ON':'OFF'}`;
+  if(soundOn) { ensureAudio(); }
+});
+particleRange.addEventListener('input', ()=>{
+  particleCount = Number(particleRange.value);
+});
+paletteBtn.addEventListener('click', ()=>{
+  paletteIndex = (paletteIndex + 1) % palettes.length;
+  // animate dot
+  dot.style.transform = 'scale(1.18)';
+  setTimeout(()=>dot.style.transform='scale(1)',180);
+});
+downloadPNG.addEventListener('click', async ()=>{
+  // quick export of current canvas
+  const data = canvas.toDataURL('image/png');
+  const a = document.createElement('a');
+  a.href = data;
+  a.download = `loucura_${Date.now()}.png`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+});
+
+/* Surprise mode */
+surpriseBtn.addEventListener('click', async ()=>{
+  // visual badge + audio + glitch intensify + particle storm
+  overlay.style.display='flex'; overlay.style.pointerEvents='auto';
+  badge.textContent = 'SURPRESA!';
+  overlay.style.opacity = 1;
+  glitch = 1.8;
+  spawnBurst(W/2, H/2, 180);
+  if(soundOn) playBurst(120, 0.7);
+  // pulse UI color
+  document.documentElement.style.setProperty('--accent1', '#00ffd5');
+  document.documentElement.style.setProperty('--accent2', '#ff00c8');
+  // rotate palette quick
+  const originalPalette = paletteIndex;
+  let i=0;
+  const int = setInterval(()=> {
+    paletteIndex = (paletteIndex + 1) % palettes.length;
+    if(++i>8){ clearInterval(int); paletteIndex = originalPalette; }
+  }, 120);
+  // small camera shake effect (canvas translate)
+  const dur = 1600; const start = performance.now();
+  function shakeStep(now){
+    const p = (now-start)/dur;
+    if(p<1){
+      const amp = (1-p)*18*glitch;
+      canvas.style.transform = `translate(${rand(-amp,amp)}px,${rand(-amp,amp)}px) rotate(${rand(-2,2)*amp/10}deg)`;
+      requestAnimationFrame(shakeStep);
+    } else {
+      canvas.style.transform = `none`;
+    }
+  }
+  requestAnimationFrame(shakeStep);
+  // hide badge after a moment
+  setTimeout(()=>{ overlay.style.display='none'; overlay.style.pointerEvents='none'; }, 2200);
+});
+
+/* small headline glitch */
+setInterval(()=>{ glitchTxt.style.transform = `translate(${rand(-6,6)}px,${rand(-3,3)}px) skew(${rand(-10,10)}deg)`; }, 250);
+setInterval(()=>{ glitchTxt.style.transform = `translate(0,0)`; }, 400);
+
+/* Start animation */
+requestAnimationFrame(loop);
+
+/* Extra: keyboard fun */
+addEventListener('keydown', e=>{
+  if(e.key===' '){ // spacebar => mini burst
+    spawnBurst(mouse.x, mouse.y, 40);
+    if(soundOn) playBurst(rand(120,800), 0.25);
+  }
+  if(e.key==='g'){ // press g => toggle big glitch
+    glitch = 1.2;
+    spawnBurst(rand(0,W), rand(0,H), 120);
+    if(soundOn) playBurst(260, 0.8);
+  }
+});
+
+/* Clean startup hint */
+console.log('Loucura Lab ready — clique na tela e aperte SURPRESA 😈');
+</script>
+</body>
+</html>
