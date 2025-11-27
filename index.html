@@ -1,473 +1,148 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Aranha Insana — Procedural (Three.js)</title>
+<meta charset="UTF-8">
+<title>Meteoros Explosivos</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
-  html,body{height:100%;margin:0;background:#0b0b0f;color:#fff;font-family:Inter,system-ui,Segoe UI,Roboto}
-  #container{position:fixed;inset:0}
-  .ui{
-    position:fixed;left:16px;top:16px;z-index:20;
-    background:rgba(0,0,0,0.45);backdrop-filter: blur(6px);
-    padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,0.04);
-    max-width:340px;
-  }
-  .ui h1{margin:0 0 8px 0;font-size:16px}
-  .ui p{margin:6px 0;font-size:13px;color:#d7d7d7}
-  .row{display:flex;gap:8px;align-items:center}
-  .btn{background:linear-gradient(90deg,#ff416c,#ff7b00);border:none;padding:8px 10px;border-radius:8px;color:#fff;font-weight:700;cursor:pointer}
-  .slider{width:160px}
-  .small{font-size:13px;padding:6px 8px}
-  .footer{position:fixed;right:12px;bottom:12px;color:#bbb;font-size:13px}
-  a{color:#fff}
+    body {
+        margin: 0;
+        background: radial-gradient(#000015, #000000);
+        overflow: hidden;
+        touch-action: none;
+    }
+
+    canvas {
+        position: fixed;
+        top: 0;
+        left: 0;
+    }
 </style>
 </head>
 <body>
-<div id="container"></div>
 
-<div class="ui">
-  <h1>Aranha Insana — Procedural</h1>
-  <p>Use o mouse pra orbitar / zoom. Ajuste pra deixar a aranha mais realista.</p>
-  <div class="row" style="margin-bottom:8px">
-    <button class="btn small" id="spawnBtn">Gerar Nova Aranha</button>
-    <button class="btn small" id="snapshot">Salvar PNG</button>
-  </div>
-  <div style="margin-top:6px">
-    <label>Escala geral</label>
-    <input id="scale" type="range" min="0.4" max="2.2" value="1" step="0.01" class="slider"/>
-  </div>
-  <div style="margin-top:6px">
-    <label>Quantidade de pelos</label>
-    <input id="hair" type="range" min="0" max="6" value="3" step="1" class="slider"/>
-  </div>
-  <div style="margin-top:6px">
-    <label>Intensidade do brilho dos olhos</label>
-    <input id="eyeGlow" type="range" min="0" max="2" value="1" step="0.05" class="slider"/>
-  </div>
-  <p style="margin-top:8px;font-size:12px;color:#a9a9a9">Feito com Three.js — Procedural geometry, instanced hair, cube camera reflections e animação das pernas.</p>
-</div>
-
-<div class="footer">Cola no Git e publica com Pages — <strong>sem assets</strong></div>
-
-<!-- Three.js + OrbitControls via CDN -->
-<script src="https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.158.0/examples/js/controls/OrbitControls.js"></script>
+<canvas id="game"></canvas>
 
 <script>
-/*
-  Aranha Procedural — Single-file
-  - Cria corpo (abdômen + cefalotórax)
-  - Gera 8 pernas articuladas (cada perna com 4 segmentos)
-  - Cria olhos reflexivos via CubeCamera
-  - InstancedMesh para pelos realistas
-  - Animação sutil (respiração + passos automáticos)
-  - Não usa assets externos (tudo procedural)
-*/
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
 
-const container = document.getElementById('container');
-const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x08070a);
+function resize() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+}
+resize();
+window.onresize = resize;
 
-const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
-renderer.setSize(innerWidth, innerHeight);
-renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-container.appendChild(renderer.domElement);
+let meteors = [];
+let explosions = [];
 
-const camera = new THREE.PerspectiveCamera(40, innerWidth/innerHeight, 0.1, 2000);
-camera.position.set(0, 55, 120);
+function spawnMeteor() {
+    meteors.push({
+        x: Math.random() * canvas.width,
+        y: -50,
+        size: 30 + Math.random() * 40,
+        speed: 2 + Math.random() * 3,
+        angle: Math.random() * 0.3 - 0.15
+    });
+}
 
-const controls = new THREE.OrbitControls(camera, renderer.domElement);
-controls.target.set(0, 18, 0);
-controls.enableDamping = true;
-controls.dampingFactor = 0.06;
-controls.minDistance = 30;
-controls.maxDistance = 400;
+setInterval(spawnMeteor, 600);
 
-// Luzes
-const hemi = new THREE.HemisphereLight(0xfff6e6, 0x222233, 0.6);
-scene.add(hemi);
+function explode(x, y) {
+    for (let i = 0; i < 20; i++) {
+        explosions.push({
+            x: x,
+            y: y,
+            dx: (Math.random() - 0.5) * 6,
+            dy: (Math.random() - 0.5) * 6,
+            size: 2 + Math.random() * 4,
+            alpha: 1
+        });
+    }
 
-const dir = new THREE.DirectionalLight(0xffffff, 1.1);
-dir.position.set(60, 120, 60);
-dir.castShadow = true;
-dir.shadow.camera.left = -120; dir.shadow.camera.right = 120;
-dir.shadow.camera.top = 120; dir.shadow.camera.bottom = -120;
-dir.shadow.mapSize.set(2048,2048);
-scene.add(dir);
+    if (navigator.vibrate) {
+        navigator.vibrate(100);
+    }
+}
 
-// Chão sutil com textura procedural
-const groundMat = new THREE.MeshStandardMaterial({ color: 0x0b0b0b, roughness: 0.95, metalness: 0.03 });
-const ground = new THREE.Mesh(new THREE.PlaneGeometry(2000,2000), groundMat);
-ground.rotation.x = -Math.PI/2;
-ground.position.y = -0.5;
-ground.receiveShadow = true;
-scene.add(ground);
+canvas.addEventListener("touchstart", touchHandler);
+canvas.addEventListener("mousedown", clickHandler);
 
-// CubeCamera para reflexões (olhos)
-const cubeRenderTarget = new THREE.WebGLCubeRenderTarget(256, { format: THREE.RGBAFormat, generateMipmaps: true, minFilter: THREE.LinearMipmapLinearFilter });
-const cubeCamera = new THREE.CubeCamera(0.1, 1000, cubeRenderTarget);
-scene.add(cubeCamera);
+function touchHandler(e) {
+    const touch = e.touches[0];
+    checkHit(touch.clientX, touch.clientY);
+}
 
-// Utilidades
-const rand = (a,b)=>(Math.random()*(b-a)+a);
-const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
+function clickHandler(e) {
+    checkHit(e.clientX, e.clientY);
+}
 
-// Main spider parent
-let spiderRoot;
+function checkHit(x, y) {
+    for (let i = meteors.length - 1; i >= 0; i--) {
+        const m = meteors[i];
+        const dx = x - m.x;
+        const dy = y - m.y;
+        const dist = Math.sqrt(dx*dx + dy*dy);
 
-// Parameters UI
-const scaleInput = document.getElementById('scale');
-const hairInput = document.getElementById('hair');
-const eyeGlowInput = document.getElementById('eyeGlow');
-const spawnBtn = document.getElementById('spawnBtn');
-const snapshotBtn = document.getElementById('snapshot');
+        if (dist < m.size) {
+            explode(m.x, m.y);
+            meteors.splice(i, 1);
+            break;
+        }
+    }
+}
 
-spawnBtn.onclick = ()=>{ buildSpider(); }
-snapshotBtn.onclick = ()=>{ savePNG(); }
-
-window.addEventListener('resize', ()=>{
-  renderer.setSize(innerWidth, innerHeight);
-  camera.aspect = innerWidth/innerHeight;
-  camera.updateProjectionMatrix();
-});
-
-// Procedural texture generator: creates a subtle fuzz / markings for body
-function createBodyCanvasTexture(baseColor, speckColor) {
-  const size = 1024;
-  const cvs = document.createElement('canvas'); cvs.width = cvs.height = size;
-  const ctx = cvs.getContext('2d');
-
-  // base gradient
-  const g = ctx.createLinearGradient(0,0,size,size);
-  g.addColorStop(0, baseColor);
-  g.addColorStop(1, '#000000');
-  ctx.fillStyle = g; ctx.fillRect(0,0,size,size);
-
-  // markings (random stripes / blotches)
-  ctx.globalAlpha = 0.12;
-  for(let i=0;i<180;i++){
-    ctx.fillStyle = speckColor;
-    const x = Math.random()*size;
-    const y = Math.random()*size;
-    const w = Math.random()*120 + 40;
-    const h = Math.random()*20 + 6;
+function drawMeteor(m) {
     ctx.save();
-    ctx.translate(x,y);
-    ctx.rotate(Math.random()*Math.PI - Math.PI/2);
-    ctx.fillRect(-w/2, -h/2, w, h);
+    ctx.translate(m.x, m.y);
+    ctx.rotate(m.angle);
+
+    const grad = ctx.createRadialGradient(0, 0, 5, 0, 0, m.size);
+    grad.addColorStop(0, "#ffaa88");
+    grad.addColorStop(1, "#662200");
+
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(0, 0, m.size, 0, Math.PI * 2);
+    ctx.fill();
+
     ctx.restore();
-  }
-
-  // fine noise
-  const img = ctx.getImageData(0,0,size,size);
-  for(let i=0;i<img.data.length;i+=4){
-    const v = (Math.random()*20)-10;
-    img.data[i] = clamp(img.data[i]+v,0,255);
-    img.data[i+1] = clamp(img.data[i+1]+v,0,255);
-    img.data[i+2] = clamp(img.data[i+2]+v,0,255);
-  }
-  ctx.putImageData(img,0,0);
-
-  const tex = new THREE.CanvasTexture(cvs);
-  tex.needsUpdate = true;
-  tex.flipY = false;
-  tex.anisotropy = 4;
-  return tex;
 }
 
-// Hair instanced mesh creation — many tiny tapered cylinders placed on body shells
-function createHairInstanced(shellMesh, density = 3) {
-  // density controls multiplier of hair count
-  const baseCount = 1200 * density;
-  const hairGeo = new THREE.CylinderGeometry(0.02, 0.09, 6, 4);
-  hairGeo.translate(0, 3, 0); // pivot at root
-  const hairMat = new THREE.MeshStandardMaterial({ color: 0x1a1110, roughness: 0.9, metalness: 0.0 });
-
-  const inst = new THREE.InstancedMesh(hairGeo, hairMat, baseCount);
-  inst.castShadow = true;
-
-  const dummy = new THREE.Object3D();
-  const posAttr = shellMesh.geometry.attributes.position;
-  const posCount = posAttr.count;
-
-  // sample surface positions randomly from geometry vertices
-  for(let i=0;i<baseCount;i++){
-    const idx = Math.floor(Math.random() * posCount) * 3;
-    const vx = posAttr.array[idx];
-    const vy = posAttr.array[idx+1];
-    const vz = posAttr.array[idx+2];
-    // compute normal-ish direction
-    dummy.position.set(vx + rand(-1,1)*0.6, vy + rand(-1,1)*0.6, vz + rand(-1,1)*0.6);
-
-    // subtle outward normal
-    const nx = vx + rand(-0.6,0.6);
-    const ny = vy + rand(-0.6,0.6);
-    const nz = vz + rand(-0.6,0.6);
-    dummy.lookAt(nx*1.2, ny*1.2, nz*1.2);
-
-    const s = rand(0.4, 1.4);
-    dummy.scale.setScalar(s* (0.9 + Math.random()*0.6));
-    dummy.updateMatrix();
-    inst.setMatrixAt(i, dummy.matrix);
-  }
-  return inst;
+function drawExplosion(e) {
+    ctx.globalAlpha = e.alpha;
+    ctx.fillStyle = "orange";
+    ctx.beginPath();
+    ctx.arc(e.x, e.y, e.size, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
 }
 
-// Build spider
-function buildSpider() {
-  if(spiderRoot){ scene.remove(spiderRoot); spiderRoot.traverse(o=>{ if(o.geometry) o.geometry.dispose(); if(o.material) { if(Array.isArray(o.material)) o.material.forEach(m=>m.dispose()); else o.material.dispose(); } }); spiderRoot = null; }
+function loop() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  spiderRoot = new THREE.Group();
-  scene.add(spiderRoot);
-
-  const scale = parseFloat(scaleInput.value);
-
-  // Colors / texture
-  const bodyColor = '#1b0f0a';
-  const speck = '#3b1f18';
-  const bodyTex = createBodyCanvasTexture(bodyColor, speck);
-
-  // Abdomen (large, slightly oblong)
-  const abdomenGeo = new THREE.SphereGeometry(16 * scale, 64, 64);
-  abdomenGeo.scale(1.3,1.05,1.0);
-  const abdomenMat = new THREE.MeshStandardMaterial({
-    map: bodyTex,
-    roughness: 0.65,
-    metalness: 0.02,
-    normalScale: new THREE.Vector2(0.6,0.6)
-  });
-  const abdomen = new THREE.Mesh(abdomenGeo, abdomenMat);
-  abdomen.castShadow = true;
-  abdomen.receiveShadow = true;
-  abdomen.position.y = 12 * scale;
-  abdomen.position.z = -8 * scale;
-  spiderRoot.add(abdomen);
-
-  // Cephalothorax (smaller front)
-  const thoraxGeo = new THREE.SphereGeometry(10 * scale, 48, 48);
-  thoraxGeo.scale(1.1,0.9,1.0);
-  const thoraxMat = new THREE.MeshStandardMaterial({
-    map: bodyTex,
-    roughness: 0.6,
-    metalness: 0.02
-  });
-  const thorax = new THREE.Mesh(thoraxGeo, thoraxMat);
-  thorax.castShadow = true;
-  thorax.receiveShadow = true;
-  thorax.position.y = 14 * scale;
-  thorax.position.z = 8 * scale;
-  spiderRoot.add(thorax);
-
-  // Pedipalps + chelicerae (small appendages in front)
-  const palpGeo = new THREE.CylinderGeometry(0.8*scale, 1.6*scale, 10*scale, 8);
-  palpGeo.translate(0, -5*scale, 0);
-  const palpMat = new THREE.MeshStandardMaterial({ color: 0x1c1310, roughness: 0.7 });
-  const palpLeft = new THREE.Mesh(palpGeo, palpMat);
-  const palpRight = new THREE.Mesh(palpGeo, palpMat);
-  palpLeft.position.set(-5*scale, 12*scale, 16*scale);
-  palpLeft.rotation.x = Math.PI*0.2; palpLeft.rotation.z = Math.PI*0.18;
-  palpRight.position.set(5*scale, 12*scale, 16*scale);
-  palpRight.rotation.x = Math.PI*0.2; palpRight.rotation.z = -Math.PI*0.18;
-  palpLeft.castShadow = palpRight.castShadow = true;
-  spiderRoot.add(palpLeft, palpRight);
-
-  // Eyes: cluster of 8 eyes (typical spiders vary) — create reflective material
-  const eyeMat = new THREE.MeshStandardMaterial({
-    color: 0x03030a,
-    metalness: 1.0,
-    roughness: 0.05,
-    envMap: cubeRenderTarget.texture,
-    envMapIntensity: parseFloat(eyeGlowInput.value)
-  });
-
-  const eyesGroup = new THREE.Group();
-  const eyePositions = [
-    [-3, 18, 21], [-1, 19, 20], [1, 19, 20], [3, 18, 21],
-    [-2, 16, 18], [2, 16, 18], [-0.6, 15, 19], [0.6, 15, 19]
-  ];
-  for(let i=0;i<eyePositions.length;i++){
-    const [ex, ey, ez] = eyePositions[i].map(v=>v*scale);
-    const e = new THREE.Mesh(new THREE.SphereGeometry(1.6*scale, 16, 16), eyeMat);
-    e.position.set(ex, ey, ez);
-    e.castShadow = true;
-    eyesGroup.add(e);
-  }
-  spiderRoot.add(eyesGroup);
-
-  // Legs: 8 legs in 4 pairs. Each leg is composed by 4 segments (coxa, femur, patella, tibia)
-  const legGroup = new THREE.Group();
-  const legMaterial = new THREE.MeshStandardMaterial({ color: 0x110a08, roughness: 0.7, metalness: 0.02 });
-  const segmentGeo = (rLen, rTop, rBot) => {
-    const geo = new THREE.CylinderGeometry(rTop, rBot, rLen, 10);
-    geo.translate(0, -rLen/2, 0); // pivot at joint
-    return geo;
-  };
-
-  const legPairs = 4;
-  const legSpread = 26 * scale;
-  const legYOffset = 12 * scale;
-  const baseZ = 8 * scale;
-
-  const legs = []; // store joints for animation
-  for(let side = -1; side <= 1; side += 2){ // left(-1) and right(1)
-    for(let i=0;i<legPairs;i++){
-      const sign = side;
-      const angle = (Math.PI*0.15) + (i * 0.18) + (side* (i*0.05));
-      const baseX = sign * (6 + i*6) * scale;
-      const baseY = legYOffset;
-      const baseZpos = baseZ - i*6*scale;
-
-      // container for this leg
-      const leg = new THREE.Group();
-      leg.position.set(baseX, baseY, baseZpos);
-
-      // segments lengths scale
-      const segLen = [12, 20, 18, 10].map(v=>v * (0.95 + i*0.03) * scale);
-      const segR = [1.6, 1.2, 1.0, 0.8].map(v=>v*scale);
-
-      let parent = leg;
-      const joints = [];
-      for(let s=0;s<4;s++){
-        const geo = segmentGeo(segLen[s], segR[s]*0.9, segR[s]*1.05);
-        const seg = new THREE.Mesh(geo, legMaterial);
-        seg.castShadow = seg.receiveShadow = true;
-        seg.position.set(0, 0, 0);
-        seg.rotation.z = ( (s===0) ? angle * sign : 0 ); // tilt first segment outward
-        parent.add(seg);
-        // create a pivot group at the top of this segment for next connection
-        const pivot = new THREE.Group();
-        pivot.position.set(0, -segLen[s], 0); // end of segment
-        seg.add(pivot);
-        parent = pivot;
-        joints.push({ seg, pivot, len: segLen[s] });
-      }
-
-      // small foot
-      const foot = new THREE.Mesh(new THREE.BoxGeometry(1.6*scale, 0.6*scale, 6*scale), legMaterial);
-      foot.position.set(0, -6*scale, 0);
-      parent.add(foot);
-      foot.castShadow = true;
-
-      leg.userData = { joints, baseX, baseZpos, index: i, side };
-      legs.push(leg);
-      legGroup.add(leg);
+    for (let m of meteors) {
+        m.y += m.speed;
+        m.x += m.angle * 5;
+        drawMeteor(m);
     }
-  }
-  spiderRoot.add(legGroup);
 
-  // Add small fine hairs on abdomen and thorax using InstancedMesh
-  const hairDensity = parseInt(hairInput.value, 10) || 3;
-  const abdomenHair = createHairInstanced(abdomen, hairDensity);
-  const thoraxHair = createHairInstanced(thorax, Math.max(1, Math.floor(hairDensity*0.8)));
-  abdomenHair.position.copy(abdomen.position);
-  thoraxHair.position.copy(thorax.position);
-  spiderRoot.add(abdomenHair, thoraxHair);
+    meteors = meteors.filter(m => m.y < canvas.height + 50);
 
-  // Slight body tilt for realism
-  spiderRoot.rotation.x = -0.08;
-  spiderRoot.position.y = 0.0;
-
-  // Save references for animation
-  spiderRoot.userData = { abdomen, thorax, legs, eyesGroup, abdomenHair, thoraxHair };
-
-  // update cube camera (for eyes reflection)
-  cubeCamera.position.copy(eyesGroup.children[0].getWorldPosition(new THREE.Vector3()));
-  cubeCamera.update(renderer, scene);
-
-  // scale root
-  spiderRoot.scale.setScalar(scale);
-}
-
-// Animation variables
-let clock = new THREE.Clock();
-function animate() {
-  requestAnimationFrame(animate);
-  const t = clock.getElapsedTime();
-
-  // update cube camera occasionally for reflection realism (eyes)
-  if(spiderRoot && spiderRoot.userData && spiderRoot.userData.eyesGroup){
-    // position cube camera near the eye cluster
-    const eyePos = spiderRoot.userData.eyesGroup.children[0].getWorldPosition(new THREE.Vector3());
-    cubeCamera.position.copy(eyePos);
-    cubeCamera.update(renderer, scene);
-    // update eyes material envMap intensity with control
-    spiderRoot.userData.eyesGroup.children.forEach(e=>{
-      if(e.material && e.material.envMap) e.material.envMapIntensity = parseFloat(eyeGlowInput.value);
-    });
-  }
-
-  // animate legs (simple procedural walk / idle sway)
-  if(spiderRoot && spiderRoot.userData){
-    const { legs, abdomen, thorax } = spiderRoot.userData;
-    const gaitSpeed = 1.6;
-    const breath = Math.sin(t*0.9) * 0.06 + 1.0;
-    abdomen.scale.y = 1.0 + Math.sin(t*0.9)*0.03;
-    abdomen.scale.x = 1.0 - Math.sin(t*0.9)*0.012;
-    thorax.rotation.y = Math.sin(t*0.6)*0.02;
-
-    for(let i=0;i<legs.length;i++){
-      const L = legs[i];
-      const idx = L.userData.index;
-      const side = L.userData.side;
-      const phase = (idx*0.5) + (side>0?0.3:-0.3);
-      const sway = Math.sin(t * gaitSpeed + phase) * 0.45;
-      const lift = Math.abs(Math.sin(t * gaitSpeed + phase)) * 0.8;
-
-      const joints = L.userData.joints;
-      // joint 0: base rotate outward/inward
-      joints[0].seg.rotation.z = (0.8 * side) + sway*0.25;
-      // joint 1: femur control (lift)
-      joints[1].seg.rotation.x = -0.6 - lift*0.8 + Math.sin(t*0.7 + idx)*0.08;
-      // joint 2: patella bend
-      joints[2].seg.rotation.x = 0.45 + lift*0.6 + Math.cos(t*0.9 + idx)*0.06;
-      // joint 3: tibia slight twist
-      joints[3].seg.rotation.x = -0.2 + Math.sin(t*1.2 + idx*0.7)*0.05;
+    for (let e of explosions) {
+        e.x += e.dx;
+        e.y += e.dy;
+        e.alpha -= 0.03;
+        drawExplosion(e);
     }
-  }
 
-  controls.update();
-  renderer.render(scene, camera);
+    explosions = explosions.filter(e => e.alpha > 0);
+
+    requestAnimationFrame(loop);
 }
-animate();
-
-// initial build
-buildSpider();
-
-// UI listeners for dynamic params
-scaleInput.addEventListener('input', ()=>{
-  // rebuild with new scale for simplicity
-  buildSpider();
-});
-hairInput.addEventListener('input', ()=>{ buildSpider(); });
-eyeGlowInput.addEventListener('input', ()=>{
-  if(spiderRoot && spiderRoot.userData && spiderRoot.userData.eyesGroup){
-    spiderRoot.userData.eyesGroup.children.forEach(e=>{
-      if(e.material) e.material.envMapIntensity = parseFloat(eyeGlowInput.value);
-    });
-  }
-});
-
-// Snapshot function
-function savePNG(){
-  renderer.render(scene, camera);
-  const data = renderer.domElement.toDataURL('image/png');
-  const a = document.createElement('a');
-  a.href = data;
-  a.download = `aranha_${Date.now()}.png`;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-}
-
-// keyboard quick actions
-window.addEventListener('keydown', (e)=>{
-  if(e.key === 'r') buildSpider();
-  if(e.key === 's') savePNG();
-});
-
-console.log('Aranha procedural pronta — aperte "Gerar Nova Aranha" para regenerar variações.');
+loop();
 </script>
+
 </body>
 </html>
