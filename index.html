@@ -1,69 +1,139 @@
 <!DOCTYPE html>
-<html lang="pt-br">
+<html lang='pt-br'>
 <head>
-<meta charset="UTF-8">
-<title>Nave Real</title>
+<meta name='viewport' content='width=device-width, initial-scale=1.0, maximum-scale=1.0'>
 <style>
-    body {
-        margin: 0;
-        overflow: hidden;
-        background: black;
-    }
-    canvas {
-        display: block;
-    }
-</style>
-</head>
-<body>
-
-<canvas id="game"></canvas>
-
-<script>
-// =======================
-// CONFIG BÁSICA
-// =======================
-const canvas = document.getElementById("game");
-const ctx = canvas.getContext("2d");
-
-canvas.width = window.innerWidth;
-canvas.height = window.innerHeight;
-
-let naveX = canvas.width / 2 - 90;
-let naveY = canvas.height - 400;
-
-// =======================
-// SUA IMAGEM REAL (BASE64)
-// =======================
-const naveImg = new Image();
-naveImg.src = "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAASABIAAD/4QBYRXhpZgAATU0AKgAAAAgAAgESAAMAAAADAAAAhgAAAAEAAAMAAAChAAAAAQAAAgMAAAEsAAAD6AAAABAAAGmHBAABAAAAAQAAAKmHAgAEAAAAAQAAAL4AAAAAAAAASAAAAAEAAABIAAAAAf/Y/7QAMQUGBwgHBw4ICA4OFBESFBQUGBwsLCQdHBwcHB0lJSUlJSUlJSUlJSUlJSUlJSUlJSUlJSUlJSUlJSUlJSUlJSX/wAALCAAqACoBAREA/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREA..."
-
-// ================
-// TOUCH CONTROLS
-// ================
-canvas.addEventListener("touchmove", e => {
-    let t = e.touches[0];
-    naveX = t.clientX - 90;
-    naveY = t.clientY - 170;
-});
-
-// ================
-// LOOP PRINCIPAL
-// ================
-function loop() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    // fundo preto
-    ctx.fillStyle = "black";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    // desenhar nave REAL
-    ctx.drawImage(naveImg, naveX, naveY, 180, 350);
-
-    requestAnimationFrame(loop);
+body {
+  margin: 0;
+  background: #2f7d2f;
+  font-family: sans-serif;
+  overflow: hidden;
 }
 
-loop();
-</script>
+.arena {
+  width: 100vw;
+  height: 100vh;
+  background: linear-gradient(#59c44a, #3b8c34);
+  position: relative;
+}
 
+/* LANE */
+.lane {
+  position: absolute;
+  width: 82%;
+  left: 9%;
+  top: 0;
+  height: 100%;
+  background: rgba(255,255,255,0.09);
+  border-left: 5px solid rgba(0,0,0,0.25);
+  border-right: 5px solid rgba(0,0,0,0.25);
+}
+
+/* RIO */
+.river {
+  position: absolute;
+  top: 45%;
+  left: 0;
+  width: 100%;
+  height: 10%;
+  background: #2196f3;
+  box-shadow: inset 0 0 20px rgba(0,0,0,0.3);
+}
+
+/* PONTES (DUAS) */
+.bridge {
+  position: absolute;
+  width: 26%;
+  height: 5%;
+  background: #d2a679;
+  border: 3px solid #8b6b3f;
+  border-radius: 6px;
+}
+
+#bridge_left {
+  top: 47%;
+  left: 18%;
+}
+
+#bridge_right {
+  top: 47%;
+  left: 56%;
+}
+
+/* TORRES */
+.tower {
+  position: absolute;
+  width: 18%;
+  height: 10%;
+  background: #b36b34;
+  border: 4px solid #5d3118;
+  border-radius: 12px;
+  box-shadow: 0 0 10px rgba(0,0,0,0.4);
+}
+
+#t1 { top: 8%; left: 18%; }
+#t2 { top: 8%; left: 64%; }
+#king_top { top: 1%; left: 41%; height: 13%; background:#7cb342; }
+
+#t3 { bottom: 8%; left: 18%; }
+#t4 { bottom: 8%; left: 64%; }
+#king_bottom { bottom: 1%; left: 41%; height: 13%; background:#7cb342; }
+
+/* CARTAS NA TELA */
+.cards {
+  position: absolute;
+  bottom: 0;
+  width: 100%;
+  height: 18%;
+  background: rgba(0,0,0,0.35);
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  backdrop-filter: blur(4px);
+}
+
+.card {
+  width: 18%;
+  height: 80%;
+  background: #ffffff;
+  border-radius: 10px;
+  border: 3px solid #d3d3d3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  box-shadow: 0 0 8px rgba(0,0,0,0.5);
+}
+</style>
+</head>
+
+<body>
+<div class='arena'>
+  <div class='lane'></div>
+  <div class='river'></div>
+
+  <!-- DUAS PONTES -->
+  <div id='bridge_left' class='bridge'></div>
+  <div id='bridge_right' class='bridge'></div>
+
+  <!-- TORRES (TOP) -->
+  <div id='t1' class='tower'></div>
+  <div id='t2' class='tower'></div>
+  <div id='king_top' class='tower'></div>
+
+  <!-- TORRES (BOTTOM) -->
+  <div id='t3' class='tower'></div>
+  <div id='t4' class='tower'></div>
+  <div id='king_bottom' class='tower'></div>
+
+  <!-- CARTAS -->
+  <div class='cards'>
+    <div class='card'>🦅</div>
+    <div class='card'>🐻</div>
+    <div class='card'>🐍</div>
+    <div class='card'>🐜</div>
+  </div>
+
+</div>
 </body>
 </html>
